@@ -935,6 +935,78 @@ const App = {
       timer: 1500,
       showConfirmButton: false
     });
+  },
+
+  // ทดสอบ LINE Token จากหน้าต่างตั้งค่า
+  testLineTokenFromSettings: async function() {
+    let token = document.getElementById("settingLineToken").value.trim();
+    if (!token) {
+      token = CONFIG.getLineConfig().token;
+    }
+    if (!token) {
+      Swal.fire({
+        icon: "warning",
+        title: "ยังไม่ได้ระบุ Token",
+        text: "กรุณาวาง Channel access token ก่อนกดทดสอบ",
+        confirmButtonColor: "#0284c7"
+      });
+      return;
+    }
+
+    if (token.length <= 40) {
+      Swal.fire({
+        icon: "error",
+        title: "Token สั้นเกินไป!",
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <p class="text-rose-600 font-bold">Token ที่ระบุมีความยาวเพียง ${token.length} ตัวอักษร ซึ่งน่าจะเป็น "Channel Secret" ไม่ใช่ "Channel access token"</p>
+            <p><strong>วิธีแก้ไข:</strong></p>
+            <ol class="list-decimal pl-4 space-y-1">
+              <li>ไปที่ <a href="https://developers.line.biz/" target="_blank" class="text-sky-600 underline">LINE Developers Console</a></li>
+              <li>เลือก Channel ของคุณ</li>
+              <li>คลิกแท็บ <strong>Messaging API</strong> (ไม่ใช่ Basic settings)</li>
+              <li>เลื่อนลงล่างสุดตรงหัวข้อ <strong>Channel access token</strong></li>
+              <li>กดปุ่ม <strong>Issue</strong> เพื่อคัดลอก Token ยาว 170+ ตัวอักษร</li>
+            </ol>
+          </div>
+        `,
+        confirmButtonColor: "#0284c7"
+      });
+      return;
+    }
+
+    Swal.fire({
+      title: "กำลังทดสอบ Token...",
+      text: "เชื่อมต่อกับเซิร์ฟเวอร์ LINE เพื่อตรวจสอบสถานะ",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    try {
+      const res = await ApiService.testLineToken(token);
+      if (res && res.success) {
+        Swal.fire({
+          icon: "success",
+          title: "Token ถูกต้องและใช้งานได้!",
+          text: res.message,
+          confirmButtonColor: "#10b981"
+        });
+      } else {
+        Swal.fire({
+          icon: "error",
+          title: "ทดสอบไม่สำเร็จ",
+          text: res.message || "LINE ปฏิเสธการเชื่อมต่อ กรุณาตรวจสอบว่าคัดลอก Token มาครบถ้วนหรือไม่",
+          confirmButtonColor: "#ef4444"
+        });
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: err.message,
+        confirmButtonColor: "#ef4444"
+      });
+    }
   }
 };
 

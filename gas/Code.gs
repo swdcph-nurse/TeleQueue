@@ -332,22 +332,47 @@ function deleteAppointment(rowIndex) {
  * =========================================================================
  */
 
+function sanitizeLineToken(rawToken) {
+  if (!rawToken) return "";
+  let token = String(rawToken).trim();
+  // ตัดคำว่า Bearer นำหน้าออกถ้ามี
+  token = token.replace(/^Bearer\s+/i, "").trim();
+  // ตัดเครื่องหมายคำพูดรอบข้างถ้ามี
+  token = token.replace(/^["']|["']$/g, "").trim();
+  return token;
+}
+
 /**
  * ส่ง LINE Flex Message แจ้งเตือนรายการนัดวันนี้
  * @param {boolean} forceSend ส่งซ้ำแม้ว่ารายการนั้นจะเคยส่งแจ้งเตือนแล้ว
+ * @param {Object} overrideConfig ตัวเลือกการตั้งค่าเสริม
  */
-function sendDailyLineNotification(forceSend = false) {
+function sendDailyLineNotification(forceSend = false, overrideConfig = null) {
   const config = getConfig();
-  if (!config.lineChannelAccessToken) {
+  
+  let accessToken = sanitizeLineToken(overrideConfig?.lineChannelAccessToken || config.lineChannelAccessToken);
+  let destinationId = (overrideConfig?.lineDestinationId || config.lineDestinationId || "").trim();
+  
+  if (!accessToken) {
     return {
       success: false,
-      message: "ยังไม่ได้ระบุ LINE Channel Access Token ในการตั้งค่า"
+      message: "ยังไม่ได้ระบุ LINE Channel Access Token (กรุณาตั้งค่าในเมนู ⚙️ หรือใน Script Properties)"
     };
   }
-  if (!config.lineDestinationId) {
+
+  // ตรวจสอบความยาวของ Token (Channel Secret = 32 ตัวอักษร, Channel Access Token = 170+ ตัวอักษร)
+  if (accessToken.length <= 40) {
+    throw new Error(
+      "LINE Token ที่ระบุดูเหมือนจะเป็น 'Channel Secret' (ความยาว " + accessToken.length + " ตัวอักษร)\n" +
+      "การเรียก LINE Messaging API จำเป็นต้องใช้ 'Channel access token (long-lived)' ซึ่งยาวประมาณ 170+ ตัวอักษร\n" +
+      "วิธีแก้ไข: ไปที่ LINE Developers Console > เลือก Channel ของคุณ > เข้าแท็บ 'Messaging API' > เลื่อนลงล่างสุดตรงหัวข้อ 'Channel access token' แล้วกดปุ่ม 'Issue' เพื่อคัดลอก Token ที่ถูกต้อง"
+    );
+  }
+
+  if (!destinationId) {
     return {
       success: false,
-      message: "ยังไม่ได้ระบุ LINE Group ID หรือ Destination ID"
+      message: "ยังไม่ได้ระบุ LINE Destination ID (Group ID หรือ User ID)"
     };
   }
   
@@ -380,7 +405,7 @@ function sendDailyLineNotification(forceSend = false) {
   // ยิง LINE Messaging API Push Message
   const url = "https://api.line.me/v2/bot/message/push";
   const payload = {
-    to: config.lineDestinationId,
+    to: destinationId,
     messages: [flexMessage]
   };
   
@@ -388,7 +413,7 @@ function sendDailyLineNotification(forceSend = false) {
     method: "post",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": "Bearer " + config.lineChannelAccessToken
+      "Authorization": "Bearer " + accessToken
     },
     payload: JSON.stringify(payload),
     muteHttpExceptions: true
@@ -411,7 +436,56 @@ function sendDailyLineNotification(forceSend = false) {
       message: `ส่งแจ้งเตือนไปยัง LINE เรียบร้อยแล้ว จำนวน ${pendingAppointments.length} ท่าน`
     };
   } else {
-    throw new Error(`LINE API Error (${responseCode}): ${responseBody}`);
+    let errDetail = responseBody;
+    try {
+      const parsed = JSON.parse(responseBody);
+      if (responseCode === 401) {
+        errDetail = "Token ไม่ถูกต้องหรือหมดอายุ (401 Unauthorized): " + (parsed.message || "") +
+          "\nกรุณาตรวจสอบว่าได้คัดลอก Channel access token (long-lived) มาถูกต้องครบถ้วนหรือไม่";
+      } else if (responseCode === 400) {
+        errDetail = "คำขอไม่ถูกต้อง (400 Bad Request): " + (parsed.message || "");
+      }
+    } catch (e) {}
+    throw new Error(`LINE API Error (${responseCode}): ${errDetail}`);
+  }
+}
+
+/**
+ * ฟังก์ชันสำหรับทดสอบความถูกต้องของ LINE Channel Access Token
+ */
+function testLineToken(testToken) {
+  const token = sanitizeLineToken(testToken || getConfig().lineChannelAccessToken);
+  if (!token) {
+    return { success: false, message: "ยังไม่ได้ระบุ Token" };
+  }
+  
+  const url = "https://api.line.me/v2/bot/info";
+  const options = {
+    method: "get",
+    headers: {
+      "Authorization": "Bearer " + token
+    },
+    muteHttpExceptions: true
+  };
+  
+  const res = UrlFetchApp.fetch(url, options);
+  const code = res.getResponseCode();
+  const body = res.getContentText();
+  
+  if (code === 200) {
+    const info = JSON.parse(body);
+    return {
+      success: true,
+      botName: info.displayName,
+      botId: info.basicId,
+      message: `Token ถูกต้อง! เชื่อมต่อกับบอท "${info.displayName}" (${info.basicId}) สำเร็จ`
+    };
+  } else {
+    return {
+      success: false,
+      statusCode: code,
+      message: `ทดสอบ Token ไม่สำเร็จ (${code}): ${body}`
+    };
   }
 }
 
@@ -784,7 +858,10 @@ function doPost(e) {
         break;
       case "sendLineNotification":
         const force = data.forceSend === true || data.forceSend === "true";
-        responseData = sendDailyLineNotification(force);
+        responseData = sendDailyLineNotification(force, data);
+        break;
+      case "testLineToken":
+        responseData = testLineToken(data.token);
         break;
       case "setupDailyTrigger":
         responseData = setupDailyNotificationTrigger();

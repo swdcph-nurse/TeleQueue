@@ -159,7 +159,18 @@ const ApiService = {
 
   // ส่งแจ้งเตือน LINE ประจำวัน
   sendDailyLineNotification: async function(forceSend = false) {
-    return await this.request("sendLineNotification", { forceSend: forceSend });
+    const lineCfg = CONFIG.getLineConfig();
+    return await this.request("sendLineNotification", {
+      forceSend: forceSend,
+      lineChannelAccessToken: lineCfg.token,
+      lineDestinationId: lineCfg.groupId
+    });
+  },
+
+  // ทดสอบความถูกต้องของ LINE Channel Access Token
+  testLineToken: async function(token) {
+    const t = token || CONFIG.getLineConfig().token;
+    return await this.request("testLineToken", { token: t });
   },
 
   // ตั้งค่า Trigger แจ้งเตือนอัตโนมัติใน Google Apps Script
