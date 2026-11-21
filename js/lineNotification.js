@@ -57,7 +57,7 @@ const LineNotificationModule = {
           <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
             <div class="flex justify-between items-center font-bold text-slate-800 text-sm">
               <span>${idx + 1}. ${p.name}</span>
-              <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-xs">${p.department || "ทั่วไป"}</span>
+              <span class="px-2 py-0.5 rounded-full bg-teal-100 text-teal-800 text-xs">${p.department || "ทั่วไป"}</span>
             </div>
             <div class="text-slate-600 flex justify-between">
               <span>HN: <strong class="text-slate-900">${p.hn || "-"}</strong></span>
@@ -75,8 +75,8 @@ const LineNotificationModule = {
 
         previewContainer.innerHTML = `
           <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-sans">
-            <div class="bg-sky-600 p-4 text-white">
-              <div class="text-xs font-semibold uppercase tracking-wider text-sky-100">ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ</div>
+            <div class="bg-teal-600 p-4 text-white">
+              <div class="text-xs font-semibold uppercase tracking-wider text-teal-100">ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ</div>
               <h3 class="text-base font-bold mt-0.5">แจ้งเตือนนัด TELEMED ประจำวัน</h3>
               <div class="text-xs text-amber-200 font-medium mt-1">${thaiDateStr} (รอโทร ${pending.length} ท่าน)</div>
             </div>
@@ -84,7 +84,7 @@ const LineNotificationModule = {
               ${itemsHtml}
             </div>
             <div class="p-3 bg-slate-50 border-t border-slate-100 text-center">
-              <span class="inline-block w-full py-2 bg-sky-600 text-white text-xs font-bold rounded-lg shadow-sm">
+              <span class="inline-block w-full py-2 bg-teal-600 text-white text-xs font-bold rounded-lg shadow-sm">
                 เปิดระบบ TeleQueue เช็คคิว
               </span>
               <p class="text-[10px] text-slate-400 mt-1">ส่งผ่าน LINE Messaging API อัตโนมัติ</p>

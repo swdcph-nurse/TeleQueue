@@ -1,3 +1,5 @@
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
 /**
  * app.js - Main Application Controller for TeleQueue
  */
@@ -124,31 +126,9 @@ const App = {
   switchTab: function(tabName) {
     this.activeTab = tabName;
 
-    // Desktop sidebar rail active state
-    document.querySelectorAll("aside [data-tab]").forEach(btn => {
-      const active = btn.getAttribute("data-tab") === tabName;
-      if (active) {
-        btn.classList.add("nav-pill-active");
-        btn.classList.remove("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
-      } else {
-        btn.classList.remove("nav-pill-active");
-        btn.classList.add("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
-      }
-    });
-
-    // Mobile bottom navigation active state
-    document.querySelectorAll("#mobileBottomNav [data-tab]").forEach(btn => {
-      const active = btn.getAttribute("data-tab") === tabName;
-      const iconC = btn.querySelector(".nav-icon-container");
-      if (active) {
-        btn.classList.add("text-sky-700", "font-bold");
-        btn.classList.remove("text-slate-500", "font-medium");
-        if (iconC) iconC.classList.add("bg-sky-100");
-      } else {
-        btn.classList.remove("text-sky-700", "font-bold");
-        btn.classList.add("text-slate-500", "font-medium");
-        if (iconC) iconC.classList.remove("bg-sky-100");
-      }
+    // Navigation (bottom bar / rail / drawer) active state
+    document.querySelectorAll("#mainNav [data-tab]").forEach(btn => {
+      btn.classList.toggle("is-active", btn.getAttribute("data-tab") === tabName);
     });
 
     // อัปเดตชื่อหัวข้อแถบบนสุด
@@ -192,25 +172,17 @@ const App = {
 
   // ซิงค์ข้อมูลกับ Google Sheets
   syncWithGoogleSheets: async function() {
-    const syncStatusEl = document.getElementById("syncStatusIndicator");
-    if (syncStatusEl) {
-      syncStatusEl.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping mr-1.5"></span> กำลังซิงค์ข้อมูล...`;
-    }
-
+    const el = document.getElementById("syncStatusIndicator");
+    const set = (c, t) => { if (el) el.innerHTML = `<span class="dot dot-${c}"></span><span class="sync-t">${t}</span>`; };
+    set("wait", "กำลังซิงค์ข้อมูล...");
     try {
       const list = await ApiService.getAllAppointments();
-      if (syncStatusEl) {
-        const isConnected = ApiService.hasGasUrl();
-        syncStatusEl.innerHTML = isConnected ? 
-          `<span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5"></span> เชื่อมต่อ Google Sheets แล้ว` :
-          `<span class="inline-block w-2.5 h-2.5 rounded-full bg-sky-500 mr-1.5"></span> ฐานข้อมูลท้องถิ่น (${list.length} รายการ)`;
-      }
+      const on = ApiService.hasGasUrl();
+      set(on ? "ok" : "info", on ? "เชื่อมต่อ Google Sheets แล้ว" : `ฐานข้อมูลท้องถิ่น (${list.length} รายการ)`);
       this.renderAllViews();
     } catch (e) {
       console.error("Sync error:", e);
-      if (syncStatusEl) {
-        syncStatusEl.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 mr-1.5"></span> ซิงค์ขัดข้อง (ใช้ข้อมูลแคช)`;
-      }
+      set("err", "ซิงค์ขัดข้อง (ใช้ข้อมูลแคช)");
     }
   },
 
@@ -229,6 +201,10 @@ const App = {
   // ==========================================
   renderDashboard: function() {
     const stats = DataStore.calculateStats();
+    const pBar = document.getElementById("heroProgressBar");
+    if (pBar) pBar.style.width = (stats.todayCount ? Math.round(stats.completedToday / stats.todayCount * 100) : 0) + "%";
+    const pTxt = document.getElementById("heroProgressText");
+    if (pTxt) pTxt.textContent = `${stats.completedToday} จาก ${stats.todayCount} ราย`;
 
     // การ์ด 1: สรุปนัดวันนี้
     const todayCountEl = document.getElementById("statTodayCount");
@@ -243,7 +219,7 @@ const App = {
     if (pendingCallEl) {
       pendingCallEl.textContent = stats.pendingCallToday;
       const sub = document.getElementById("statPendingCallSub");
-      if (sub) sub.textContent = `(ค้างโทรทั้งหมด ${stats.pendingCallAll} ราย)`;
+      if (sub) sub.textContent = `ค้างโทรทั้งหมด ${stats.pendingCallAll} ราย`;
     }
 
     // การ์ด 4: โทรแล้วและบันทึก HosXP แล้ว
@@ -251,7 +227,7 @@ const App = {
     if (completedEl) {
       completedEl.textContent = stats.completedToday;
       const sub = document.getElementById("statCompletedSub");
-      if (sub) sub.textContent = `(เสร็จสมบูรณ์รวม ${stats.completedAll} ราย)`;
+      if (sub) sub.textContent = `เสร็จสมบูรณ์รวม ${stats.completedAll} ราย`;
     }
 
     // กล่องแจ้งเตือน: รายการที่ยังดำเนินการไม่ครบในวันนี้
@@ -261,260 +237,70 @@ const App = {
     this.renderDepartmentStats(stats.deptStats);
   },
 
-  // แจ้งเตือนรายการที่ยังดำเนินการไม่ครบ
-  renderIncompleteAlerts: function(incompleteList) {
-    const container = document.getElementById("incompleteAlertsContainer");
-    if (!container) return;
+  // ป้ายสถานะ + ขั้นตอน (ใช้ร่วมกันทุกหน้า)
+  _badge: function(a) {
+    const k = a.tele && a.hosxp ? ["done", "check", "ครบถ้วน"] : (a.tele || a.hosxp) ? ["part", "clock", "บางส่วน"] : ["wait", "alertTriangle", "รอเริ่ม"];
+    return `<span class="chip chip-${k[0]}">${Icons[k[1]]("w-3.5 h-3.5")}${k[2]}</span>`;
+  },
+  _steps: function(a) {
+    const t = (f, on, icon, title, doneTxt, op) => `<label class="step"><input type="checkbox" ${on ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}','${f}',this.checked)"><span class="step-ic">${Icons[icon]("w-5 h-5")}</span><span class="step-tx"><b>${title}</b><small>${on ? doneTxt + (op ? " · " + esc(op) : "") : "ยังไม่ดำเนินการ"}</small></span></label>`;
+    return `<div class="steps">${t("tele", a.tele, "phone", "โทรนัด", "โทรแล้ว", a.teleOperator)}${t("hosxp", a.hosxp, "fileText", "บันทึก HosXP", "บันทึกแล้ว", a.hosOperator)}</div>`;
+  },
 
-    if (!incompleteList || incompleteList.length === 0) {
-      container.innerHTML = `
-        <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-emerald-800 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">${Icons.check("w-5 h-5")}</div>
-            <div>
-              <h4 class="font-bold text-sm">การดำเนินการวันนี้ครบถ้วนทุกรายการแล้ว!</h4>
-              <p class="text-xs text-emerald-600 mt-0.5">โทรนัดและลงบันทึกในระบบ HosXP ครบ 100%</p>
-            </div>
-          </div>
-          <span class="text-xs font-semibold px-3 py-1 bg-emerald-200 text-emerald-900 rounded-full">ยอดเยี่ยม</span>
-        </div>
-      `;
+  // แจ้งเตือนรายการที่ยังดำเนินการไม่ครบ
+  renderIncompleteAlerts: function(list) {
+    const c = document.getElementById("incompleteAlertsContainer");
+    if (!c) return;
+    if (!list || list.length === 0) {
+      c.innerHTML = `<div class="banner banner-ok">${Icons.checkCircle("w-6 h-6")}<div><b>ดำเนินการครบทุกรายการแล้ว</b><p>โทรนัดและบันทึก HosXP ครบสำหรับวันนี้</p></div></div>`;
       return;
     }
-
-    const items = incompleteList.map(a => {
-      const missingTele = !a.tele;
-      const missingHos = !a.hosxp;
-      
-      let badge = "";
-      if (missingTele && missingHos) {
-        badge = `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded-md font-bold">รอโทร & รอลง Hos</span>`;
-      } else if (missingTele) {
-        badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-md font-bold">ยังไม่โทร</span>`;
-      } else if (missingHos) {
-        badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-md font-bold">ยังไม่ลง HosXP</span>`;
-      }
-
-      return `
-        <div class="bg-white p-3.5 rounded-xl border border-rose-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-rose-300 transition-colors">
-          <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs mt-0.5">
-              ${a.department || "MED"}
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="font-bold text-slate-800 text-sm">${a.name}</span>
-                <span class="text-xs text-slate-500 font-mono">HN: ${a.hn || "-"}</span>
-                ${badge}
-              </div>
-              <div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                <span class="flex items-center gap-1">${Icons.stethoscope("w-3 h-3")} แพทย์: ${a.doctor || "-"}</span>
-                <span class="flex items-center gap-1">${Icons.phone("w-3 h-3")} เบอร์: <a href="tel:${a.phone}" class="text-sky-600 font-bold hover:underline">${a.phone || "ไม่มีเบอร์"}</a></span>
-                <span class="flex items-center gap-1">${Icons.fileText("w-3 h-3")} ${a.notes || "ติดตามอาการ"}</span>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button onclick="App.quickToggleTele('${a.id}', ${!a.tele})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${a.tele ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100'}">
-              ${a.tele ? "โทรแล้ว" : "ยืนยันโทร"}
-            </button>
-            <button onclick="App.quickToggleHos('${a.id}', ${!a.hosxp})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${a.hosxp ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'}">
-              ${a.hosxp ? "ลง Hos แล้ว" : "ยืนยันลง Hos"}
-            </button>
-          </div>
-        </div>
-      `;
-    }).join("");
-
-    container.innerHTML = `
-      <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 md:p-5">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-            <h4 class="font-bold text-slate-900 text-sm md:text-base">แจ้งเตือน: รายการนัดวันนี้ที่ยังดำเนินการไม่ครบ (${incompleteList.length} ราย)</h4>
-          </div>
-          <button onclick="App.switchTab('today')" class="text-xs font-bold text-rose-700 hover:underline">
-            ดูคิววันนี้ทั้งหมด →
-          </button>
-        </div>
-        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
-          ${items}
-        </div>
-      </div>
-    `;
+    c.innerHTML = `<section class="card"><div class="card-h"><h3>ค้างดำเนินการวันนี้<span class="count">${list.length}</span></h3><button class="btn-text btn-sm" onclick="App.switchTab('today')">ดูคิววันนี้</button></div><div class="li-list" style="max-height:320px;overflow:auto">${list.map(a => `
+      <div class="li"><span class="avatar">${esc((a.department || "?").slice(0, 2))}</span>
+        <div class="li-b"><b>${esc(a.name)}</b><small>HN ${esc(a.hn || "-")} · ${esc(a.doctor || "-")}${a.phone ? " · " + esc(a.phone) : ""}</small></div>
+        <div class="li-act">
+          <button class="btn-tonal btn-sm ${a.tele ? "is-on" : ""}" onclick="App.quickToggleTele('${a.id}', ${!a.tele})">${a.tele ? "โทรแล้ว" : "ยืนยันโทร"}</button>
+          <button class="btn-tonal btn-sm ${a.hosxp ? "is-on" : ""}" onclick="App.quickToggleHos('${a.id}', ${!a.hosxp})">${a.hosxp ? "ลง Hos แล้ว" : "ยืนยันลง Hos"}</button>
+        </div></div>`).join("")}</div></section>`;
   },
 
   // สรุปสถิติตามแผนก
-  renderDepartmentStats: function(deptStats) {
-    const container = document.getElementById("deptStatsContainer");
-    if (!container) return;
-
-    const keys = Object.keys(deptStats);
-    if (keys.length === 0) {
-      container.innerHTML = `<p class="text-xs text-slate-400">ไม่มีข้อมูล</p>`;
-      return;
-    }
-
-    const maxCount = Math.max(...keys.map(k => deptStats[k]), 1);
-
-    const html = keys.map(k => {
-      const count = deptStats[k];
-      const pct = Math.round((count / maxCount) * 100);
-      return `
-        <div class="flex items-center gap-3">
-          <span class="font-bold text-slate-700 text-xs w-28 shrink-0 truncate">${k}</span>
-          <div class="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
-            <div class="bg-sky-500 h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
-          </div>
-          <span class="px-2 py-0.5 bg-sky-100 text-sky-800 rounded-full font-bold text-xs whitespace-nowrap">${count} ราย</span>
-        </div>
-      `;
-    }).join("");
-
-    container.innerHTML = html;
+  renderDepartmentStats: function(s) {
+    const c = document.getElementById("deptStatsContainer");
+    if (!c) return;
+    const k = Object.keys(s);
+    if (!k.length) { c.innerHTML = `<p class="muted">ไม่มีข้อมูล</p>`; return; }
+    const m = Math.max(...k.map(x => s[x]), 1);
+    c.innerHTML = k.map(x => `<div class="meter"><span>${esc(x)}</span><div class="track"><i style="width:${Math.round(s[x] / m * 100)}%"></i></div><b>${s[x]}</b></div>`).join("");
   },
 
   // ==========================================
   // 2. Today's Queue View
   // ==========================================
   renderTodayQueue: function() {
-    const dateQuery = this.currentQueueDate || getTodayIso();
-    const todayList = DataStore.getByDate(dateQuery);
-    const thaiDate = formatThaiDateDisplay(dateQuery);
-
-    const titleEl = document.getElementById("queueDateHeaderTitle");
-    if (titleEl) {
-      titleEl.textContent = `รายการนัดประจำวันที่ ${thaiDate} (${todayList.length} ราย)`;
-    }
-
-    const container = document.getElementById("todayQueueTableBody");
-    if (!container) return;
-
-    if (todayList.length === 0) {
-      container.innerHTML = `
-        <tr>
-          <td colspan="7" class="py-12 text-center text-slate-400">
-            <div class="text-slate-300 mb-2 flex justify-center">${Icons.calendar("w-10 h-10")}</div>
-            <div class="font-semibold text-slate-600">ไม่มีรายการนัดหมายสำหรับวันที่ ${thaiDate}</div>
-            <p class="text-xs text-slate-400 mt-1">สามารถกดปุ่ม "เพิ่มนัดหมายใหม่" เพื่อสร้างรายการ</p>
-          </td>
-        </tr>
-      `;
+    const d = this.currentQueueDate || getTodayIso();
+    const list = DataStore.getByDate(d);
+    const th = formatThaiDateDisplay(d);
+    const t = document.getElementById("queueDateHeaderTitle");
+    if (t) t.textContent = `คิวนัดวันที่ ${th} (${list.length} ราย)`;
+    const c = document.getElementById("todayQueueList");
+    if (!c) return;
+    if (!list.length) {
+      c.innerHTML = `<div class="empty">${Icons.calendar("w-12 h-12")}<b>ไม่มีนัดหมายวันที่ ${th}</b><p>กดปุ่มเพิ่มนัดหมายเพื่อสร้างรายการ</p></div>`;
       return;
     }
-
-    const rows = todayList.map((a, idx) => {
-      const isComplete = a.tele && a.hosxp;
-      const rowBg = isComplete ? "bg-emerald-50/40" : "";
-
-      return `
-        <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${rowBg}">
-          <td class="py-3.5 px-4 text-xs font-mono text-slate-400 text-center">${idx + 1}</td>
-          <td class="py-3.5 px-4">
-            <div class="font-bold text-slate-900 text-sm">${a.name}</div>
-            <div class="text-xs text-slate-500 font-mono mt-0.5">HN: <span class="font-bold text-slate-700">${a.hn || "-"}</span> | ปชช: ${a.cid || "-"}</div>
-            ${a.lineName ? `<div class="text-[11px] text-emerald-600 font-medium flex items-center gap-1">${Icons.message("w-3 h-3")} LINE: ${a.lineName}</div>` : ""}
-          </td>
-          <td class="py-3.5 px-4 text-xs">
-            <span class="inline-block px-2.5 py-1 rounded-md font-bold text-xs bg-sky-100 text-sky-800 mb-1">${a.department || "-"}</span>
-            <div class="text-slate-600">พ. ${a.doctor || "-"}</div>
-          </td>
-          <td class="py-3.5 px-4 text-xs">
-            ${a.phone ? `
-              <div class="flex items-center gap-1.5">
-                <a href="tel:${a.phone.replace(/[^0-9]/g, "")}" class="font-bold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1">
-                  ${Icons.phone("w-3.5 h-3.5")} ${a.phone}
-                </a>
-              </div>
-            ` : `<span class="text-slate-400 italic">ไม่มีเบอร์โทร</span>`}
-            <div class="text-slate-500 mt-1 text-[11px] line-clamp-2" title="${a.notes || ''}">
-              ${Icons.fileText("w-3 h-3 inline")} ${a.notes || "-"}
-            </div>
-          </td>
-          <!-- Checkbox TELE -->
-          <td class="py-3.5 px-4 text-center">
-            <label class="inline-flex flex-col items-center cursor-pointer select-none">
-              <input type="checkbox" ${a.tele ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'tele', this.checked)" class="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-              <span class="text-[10px] mt-1 font-semibold ${a.tele ? 'text-emerald-700' : 'text-slate-400'}">
-                ${a.tele ? 'โทรแล้ว' : 'ยังไม่โทร'}
-              </span>
-              ${a.teleOperator ? `<span class="text-[9px] text-slate-400 truncate max-w-[80px]" title="${a.teleOperator} (${a.teleTime || ''})">${a.teleOperator}</span>` : ''}
-            </label>
-          </td>
-          <!-- Checkbox HosXP -->
-          <td class="py-3.5 px-4 text-center">
-            <label class="inline-flex flex-col items-center cursor-pointer select-none">
-              <input type="checkbox" ${a.hosxp ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'hosxp', this.checked)" class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
-              <span class="text-[10px] mt-1 font-semibold ${a.hosxp ? 'text-indigo-700' : 'text-slate-400'}">
-                ${a.hosxp ? 'ลง Hos แล้ว' : 'ยังไม่ลง'}
-              </span>
-              ${a.hosOperator ? `<span class="text-[9px] text-slate-400 truncate max-w-[80px]" title="${a.hosOperator} (${a.hosTime || ''})">${a.hosOperator}</span>` : ''}
-            </label>
-          </td>
-          <td class="py-3.5 px-4 text-right">
-            <div class="flex items-center justify-end gap-1.5">
-              <button onclick="App.openPatientDetailModalById('${a.id}')" class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg" title="ดูข้อมูล">
-                ${Icons.eye("w-4 h-4")}
-              </button>
-              <button onclick="App.openEditAppointmentModal('${a.id}')" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg" title="แก้ไข">
-                ${Icons.edit("w-4 h-4")}
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
+    c.innerHTML = list.map(a => {
+      const tel = a.phone ? String(a.phone).replace(/[^0-9]/g, "") : "";
+      return `<article class="card q ${a.tele && a.hosxp ? "q-done" : ""}">
+        <div class="q-h"><div><h3>${esc(a.name)}</h3><small>HN ${esc(a.hn || "-")} · ปชช. ${esc(a.cid || "-")}</small></div><span class="chip chip-dept">${esc(a.department || "-")}</span></div>
+        <div class="q-m"><span>${Icons.stethoscope("w-4 h-4")} พ. ${esc(a.doctor || "-")}</span>${a.lineName ? `<span class="q-l">${Icons.message("w-4 h-4")} ${esc(a.lineName)}</span>` : ""}</div>
+        ${a.notes ? `<p class="q-n">${esc(a.notes)}</p>` : ""}
+        ${this._steps(a)}
+        <div class="q-f">${tel ? `<a class="btn-tonal btn-sm" href="tel:${tel}">${Icons.phone("w-4 h-4")} ${esc(a.phone)}</a>` : `<span class="muted">ไม่มีเบอร์โทร</span>`}<span class="grow"></span>
+          <button class="icon-btn" title="ดูข้อมูล" onclick="App.openPatientDetailModalById('${a.id}')">${Icons.eye("w-5 h-5")}</button>
+          <button class="icon-btn" title="แก้ไข" onclick="App.openEditAppointmentModal('${a.id}')">${Icons.edit("w-5 h-5")}</button></div>
+      </article>`;
     }).join("");
-
-    container.innerHTML = rows;
-
-    // === Mobile Cards View ===
-    const mobileContainer = document.getElementById("todayQueueMobileContainer");
-    if (mobileContainer) {
-      if (todayList.length === 0) {
-        mobileContainer.innerHTML = `
-          <div class="p-8 text-center text-slate-400">
-            <div class="mb-2 flex justify-center text-slate-300">${Icons.calendar("w-10 h-10")}</div>
-            <div class="font-semibold text-slate-600">ไม่มีรายการนัดสำหรับวันที่ ${thaiDate}</div>
-          </div>
-        `;
-      } else {
-        const cards = todayList.map(a => {
-          const isComplete = a.tele && a.hosxp;
-          return `
-            <div class="bg-white p-4 rounded-2xl border ${isComplete ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200'} shadow-xs space-y-3">
-              <div>
-                <div class="font-bold text-slate-900">${a.name}</div>
-                <div class="text-xs text-slate-500 font-mono mt-0.5">HN <strong class="text-slate-700">${a.hn || "-"}</strong> | ปชช. ${a.cid || "-"}</div>
-                ${a.lineName ? `<div class="text-xs text-emerald-600 font-medium mt-0.5 flex items-center gap-1">${Icons.message("w-3 h-3")} LINE: ${a.lineName}</div>` : ""}
-              </div>
-              <div class="flex items-center gap-2">
-                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-100 text-sky-800">${a.department || "-"}</span>
-                <span class="text-xs text-slate-600 flex items-center gap-1">${Icons.stethoscope("w-3 h-3")} พ. ${a.doctor || "-"}</span>
-              </div>
-              ${a.phone ? `<div class="text-xs"><a href="tel:${a.phone.replace(/[^0-9]/g, '')}" class="font-bold text-emerald-600 hover:underline flex items-center gap-1">${Icons.phone("w-3.5 h-3.5")} ${a.phone}</a></div>` : `<div class="text-xs text-slate-400 italic">ไม่มีเบอร์โทร</div>`}
-              ${a.notes ? `<div class="text-xs text-slate-500 flex items-start gap-1">${Icons.fileText("w-3 h-3 mt-0.5 shrink-0")} ${a.notes}</div>` : ""}
-              <div class="grid grid-cols-2 gap-2">
-                <label class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col items-center gap-1.5 cursor-pointer select-none">
-                  <span class="text-[11px] font-bold text-slate-600">โทรนัด (TELE)</span>
-                  <input type="checkbox" ${a.tele ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'tele', this.checked)" class="w-5 h-5 rounded text-emerald-600 cursor-pointer">
-                  <span class="text-[10px] font-semibold ${a.tele ? 'text-emerald-700' : 'text-slate-400'}">${a.tele ? 'โทรแล้ว' : 'ยังไม่โทร'}</span>
-                </label>
-                <label class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col items-center gap-1.5 cursor-pointer select-none">
-                  <span class="text-[11px] font-bold text-slate-600">บันทึก HosXP</span>
-                  <input type="checkbox" ${a.hosxp ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'hosxp', this.checked)" class="w-5 h-5 rounded text-indigo-600 cursor-pointer">
-                  <span class="text-[10px] font-semibold ${a.hosxp ? 'text-indigo-700' : 'text-slate-400'}">${a.hosxp ? 'ลง Hos แล้ว' : 'ยังไม่ลง'}</span>
-                </label>
-              </div>
-              <div class="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
-                <button onclick="App.openPatientDetailModalById('${a.id}')" class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg" title="ดูข้อมูล">${Icons.eye("w-4 h-4")}</button>
-                <button onclick="App.openEditAppointmentModal('${a.id}')" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg" title="แก้ไข">${Icons.edit("w-4 h-4")}</button>
-              </div>
-            </div>
-          `;
-        }).join("");
-        mobileContainer.innerHTML = cards;
-      }
-    }
   },
 
   // เลื่อนวันในหน้าคิว +1 / -1
@@ -629,126 +415,21 @@ const App = {
     const countEl = document.getElementById("manageTableCount");
     if (countEl) countEl.textContent = `พบ ${filtered.length} รายการ (จากทั้งหมด ${appointments.length} รายการ)`;
 
-    const tbody = document.getElementById("manageTableBody");
-    if (!tbody) return;
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="8" class="py-12 text-center text-slate-400">
-            <div class="text-slate-300 mb-1 flex justify-center">${Icons.search("w-8 h-8")}</div>
-            <div class="font-semibold text-slate-600">ไม่พบนัดหมายที่ตรงกับเงื่อนไข</div>
-            <p class="text-xs text-slate-400 mt-1">ลองเปลี่ยนคำค้นหา หรือล้างตัวกรอง</p>
-          </td>
-        </tr>
-      `;
+    const c = document.getElementById("manageList");
+    if (!c) return;
+    if (!filtered.length) {
+      c.innerHTML = `<div class="empty">${Icons.search("w-12 h-12")}<b>ไม่พบนัดหมายที่ตรงกับเงื่อนไข</b><p>ลองเปลี่ยนคำค้นหาหรือล้างตัวกรอง</p></div>`;
       return;
     }
-
-    const rows = filtered.map((a, idx) => {
-      let statusBadge = "";
-      if (a.tele && a.hosxp) {
-        statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">${Icons.check("w-3 h-3")} ครบถ้วน</span>`;
-      } else if (a.tele || a.hosxp) {
-        statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">${Icons.clock("w-3 h-3")} บางส่วน</span>`;
-      } else {
-        statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">${Icons.alertTriangle("w-3 h-3")} รอเริ่ม</span>`;
-      }
-
-      return `
-        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors text-xs">
-          <td class="py-3 px-3 text-slate-400 font-mono text-center">${idx + 1}</td>
-          <td class="py-3 px-3 whitespace-nowrap">
-            <span class="font-bold text-slate-900">${a.thaiDate}</span>
-            <div class="text-[10px] text-slate-400 font-mono">${a.date}</div>
-          </td>
-          <td class="py-3 px-3">
-            <div class="font-bold text-slate-800">${a.name}</div>
-            <div class="text-[11px] text-slate-500 font-mono">HN: ${a.hn || "-"}</div>
-          </td>
-          <td class="py-3 px-3">
-            <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">${a.department || "-"}</span>
-            <div class="text-slate-500 mt-0.5">พ. ${a.doctor || "-"}</div>
-          </td>
-          <td class="py-3 px-3">
-            <div class="font-semibold text-slate-800">${a.phone || "-"}</div>
-            ${a.lineName ? `<div class="text-slate-400 text-[11px]">Line: ${a.lineName}</div>` : ""}
-          </td>
-          <td class="py-3 px-3 max-w-xs truncate" title="${a.notes || ''}">
-            ${a.notes || "-"}
-          </td>
-          <td class="py-3 px-3 text-center whitespace-nowrap">
-            ${statusBadge}
-          </td>
-          <td class="py-3 px-3 text-right whitespace-nowrap">
-            <div class="flex items-center justify-end gap-1">
-              <button onclick="App.openPatientDetailModalById('${a.id}')" class="px-2 py-1 text-slate-600 hover:bg-slate-200 rounded" title="ดูรายละเอียด">
-                ดู
-              </button>
-              <button onclick="App.openEditAppointmentModal('${a.id}')" class="px-2 py-1 text-sky-600 hover:bg-sky-50 rounded" title="แก้ไข">
-                แก้ไข
-              </button>
-              <button onclick="App.confirmDeleteAppointment('${a.id}')" class="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded" title="ลบ">
-                ลบ
-              </button>
-            </div>
-          </td>
-        </tr>
-      `;
-    }).join("");
-
-    tbody.innerHTML = rows;
-
-    // === Mobile Manage Cards ===
-    const manageCards = document.getElementById("manageCardsMobileContainer");
-    if (manageCards) {
-      if (filtered.length === 0) {
-        manageCards.innerHTML = `
-          <div class="p-8 text-center text-slate-400">
-            <div class="text-slate-300 mb-1 flex justify-center">${Icons.search("w-8 h-8")}</div>
-            <div class="font-semibold text-slate-600">ไม่พบนัดหมายที่ตรงกับเงื่อนไข</div>
-          </div>
-        `;
-      } else {
-        const mcards = filtered.map(a => {
-          let statusBadge = "";
-          if (a.tele && a.hosxp) {
-            statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">${Icons.check("w-3 h-3")} ครบถ้วน</span>`;
-          } else if (a.tele || a.hosxp) {
-            statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">${Icons.clock("w-3 h-3")} บางส่วน</span>`;
-          } else {
-            statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">${Icons.alertTriangle("w-3 h-3")} รอเริ่ม</span>`;
-          }
-          return `
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
-              <div class="flex items-center justify-between">
-                <div>
-                  <div class="font-bold text-slate-900 text-sm">${a.name}</div>
-                  <div class="text-[11px] text-slate-500 font-mono">HN: ${a.hn || "-"}</div>
-                </div>
-                ${statusBadge}
-              </div>
-              <div class="flex items-center gap-2 text-xs">
-                <span class="font-bold text-slate-600">${a.thaiDate}</span>
-                <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">${a.department || "-"}</span>
-                <span class="text-slate-500">พ. ${a.doctor || "-"}</span>
-              </div>
-              <div class="text-xs text-slate-600">
-                ${a.phone ? `<span class="font-semibold">${a.phone}</span>` : "-"}
-                ${a.lineName ? `<span class="text-slate-400 ml-1">LINE: ${a.lineName}</span>` : ""}
-              </div>
-              ${a.notes ? `<div class="text-xs text-slate-500 truncate">${a.notes}</div>` : ""}
-              <div class="flex items-center justify-end gap-1.5 pt-1.5 border-t border-slate-100">
-                <button onclick="App.openPatientDetailModalById('${a.id}')" class="px-2.5 py-1 text-slate-500 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1">${Icons.eye("w-3.5 h-3.5")} ดู</button>
-                <button onclick="App.openEditAppointmentModal('${a.id}')" class="px-2.5 py-1 text-sky-600 hover:bg-sky-50 rounded-lg text-xs font-semibold flex items-center gap-1">${Icons.edit("w-3.5 h-3.5")} แก้ไข</button>
-                <button onclick="App.confirmDeleteAppointment('${a.id}')" class="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold flex items-center gap-1">${Icons.trash("w-3.5 h-3.5")} ลบ</button>
-              </div>
-            </div>
-          `;
-        }).join("");
-        manageCards.innerHTML = mcards;
-      }
-    }
+    c.innerHTML = filtered.map(a => `
+      <div class="li"><span class="avatar">${esc((a.department || "?").slice(0, 2))}</span>
+        <div class="li-b"><b>${esc(a.name)}</b><small>${esc(a.thaiDate)} · HN ${esc(a.hn || "-")} · ${esc(a.department || "-")} · พ. ${esc(a.doctor || "-")}</small>${a.notes ? `<small class="li-n">${esc(a.notes)}</small>` : ""}</div>
+        ${this._badge(a)}
+        <div class="li-act">
+          <button class="icon-btn" title="ดูรายละเอียด" onclick="App.openPatientDetailModalById('${a.id}')">${Icons.eye("w-5 h-5")}</button>
+          <button class="icon-btn" title="แก้ไข" onclick="App.openEditAppointmentModal('${a.id}')">${Icons.edit("w-5 h-5")}</button>
+          <button class="icon-btn" title="ลบ" style="color:var(--err)" onclick="App.confirmDeleteAppointment('${a.id}')">${Icons.trash("w-5 h-5")}</button>
+        </div></div>`).join("");
   },
 
   // ==========================================
@@ -971,59 +652,20 @@ const App = {
       `<span class="text-indigo-700 font-bold">ลงบันทึก HosXP แล้ว (${apt.hosOperator || 'เจ้าหน้าที่'} - ${apt.hosTime || ''})</span>` :
       `<span class="text-rose-600 font-bold">ยังไม่ได้ลง HosXP</span>`;
 
+    const tel = apt.phone ? String(apt.phone).replace(/[^0-9]/g, "") : "";
     container.innerHTML = `
-      <div class="space-y-4 text-sm font-sans">
-        <div class="bg-sky-50 p-4 rounded-2xl border border-sky-100 flex justify-between items-start">
-          <div>
-            <h3 class="text-lg font-bold text-slate-900">${apt.name}</h3>
-            <div class="text-xs text-slate-500 font-mono mt-0.5">HN: <strong class="text-slate-800">${apt.hn || "-"}</strong> | เลข ปชช: ${apt.cid || "-"}</div>
-            <div class="mt-2 text-xs text-sky-800 font-medium">
-              วันนัด: <strong>${apt.thaiDate} (${apt.date})</strong>
-            </div>
-          </div>
-          <span class="px-3 py-1 bg-sky-200 text-sky-900 font-bold text-xs rounded-full">${apt.department || "MED"}</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 text-xs">
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <span class="text-slate-400 block mb-0.5">แพทย์ผู้นัด</span>
-            <span class="font-bold text-slate-800 text-sm">${apt.doctor || "-"}</span>
-          </div>
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <span class="text-slate-400 block mb-0.5">เบอร์โทรศัพท์</span>
-            ${apt.phone ? `
-              <a href="tel:${apt.phone.replace(/[^0-9]/g, "")}" class="font-bold text-emerald-600 hover:underline text-sm flex items-center gap-1">
-                ${Icons.phone("w-3.5 h-3.5")} ${apt.phone}
-              </a>
-            ` : `<span class="text-slate-400">ไม่มีเบอร์โทร</span>`}
-          </div>
-        </div>
-
-        ${apt.lineName ? `
-          <div class="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 text-xs">
-            <span class="text-emerald-700 font-semibold">ชื่อ Line:</span>
-            <span class="text-slate-800 ml-1 font-medium">${apt.lineName}</span>
-          </div>
-        ` : ''}
-
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
-          <span class="text-slate-400 block mb-1">หมายเหตุ / เหตุผลการนัด</span>
-          <p class="text-slate-700 leading-relaxed font-medium">${apt.notes || "ติดตามอาการ"}</p>
-        </div>
-
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 text-xs">
-          <div class="font-bold text-slate-700">สถานะการปฏิบัติงาน:</div>
-          <div class="flex items-center gap-1">${Icons.phone("w-3.5 h-3.5")} การโทรนัด: ${statusTele}</div>
-          <div class="flex items-center gap-1">${Icons.checkCircle("w-3.5 h-3.5")} การลงบันทึก HosXP: ${statusHos}</div>
-        </div>
-
-        <div class="flex gap-2 pt-2">
-          <button onclick="App.quickToggleTele('${apt.id}', ${!apt.tele}); App.closePatientDetailModal();" class="flex-1 py-2 px-3 text-xs font-bold rounded-xl ${apt.tele ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'}">
-            ${apt.tele ? 'ยกเลิกสถานะโทร' : 'บันทึกว่าโทรแล้ว'}
-          </button>
-          <button onclick="App.quickToggleHos('${apt.id}', ${!apt.hosxp}); App.closePatientDetailModal();" class="flex-1 py-2 px-3 text-xs font-bold rounded-xl ${apt.hosxp ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'}">
-            ${apt.hosxp ? 'ยกเลิกสถานะ Hos' : 'บันทึกว่าลง HosXP แล้ว'}
-          </button>
+      <div class="detail">
+        <div class="detail-h"><div><h4>${esc(apt.name)}</h4><small>HN ${esc(apt.hn || "-")} · ปชช. ${esc(apt.cid || "-")}</small><p>วันนัด ${esc(apt.thaiDate)} (${esc(apt.date)})</p></div><span class="chip" style="background:#fff">${esc(apt.department || "-")}</span></div>
+        <dl class="kv">
+          <div><dt>แพทย์ผู้นัด</dt><dd>${esc(apt.doctor || "-")}</dd></div>
+          <div><dt>เบอร์โทรศัพท์</dt><dd>${tel ? `<a href="tel:${tel}" style="color:var(--primary)">${esc(apt.phone)}</a>` : "-"}</dd></div>
+          ${apt.lineName ? `<div style="grid-column:1/-1"><dt>ชื่อ LINE</dt><dd>${esc(apt.lineName)}</dd></div>` : ""}
+          <div style="grid-column:1/-1"><dt>หมายเหตุ / เหตุผลการนัด</dt><dd style="font-weight:400">${esc(apt.notes || "ติดตามอาการ")}</dd></div>
+        </dl>
+        ${this._steps(apt)}
+        <div class="dlg-act">
+          <button class="btn-tonal" onclick="App.closePatientDetailModal(); App.openEditAppointmentModal('${apt.id}')">แก้ไขข้อมูล</button>
+          <button class="btn" onclick="App.closePatientDetailModal()">ปิด</button>
         </div>
       </div>
     `;
@@ -1200,7 +842,7 @@ const App = {
             <p class="text-rose-600 font-bold">Token ที่ระบุมีความยาวเพียง ${token.length} ตัวอักษร ซึ่งน่าจะเป็น "Channel Secret" ไม่ใช่ "Channel access token"</p>
             <p><strong>วิธีแก้ไข:</strong></p>
             <ol class="list-decimal pl-4 space-y-1">
-              <li>ไปที่ <a href="https://developers.line.biz/" target="_blank" class="text-sky-600 underline">LINE Developers Console</a></li>
+              <li>ไปที่ <a href="https://developers.line.biz/" target="_blank" class="text-teal-600 underline">LINE Developers Console</a></li>
               <li>เลือก Channel ของคุณ</li>
               <li>คลิกแท็บ <strong>Messaging API</strong> (ไม่ใช่ Basic settings)</li>
               <li>เลื่อนลงล่างสุดตรงหัวข้อ <strong>Channel access token</strong></li>

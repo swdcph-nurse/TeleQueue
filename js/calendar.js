@@ -98,18 +98,18 @@ const CalendarModule = {
     });
 
     return filtered.map(a => {
-      let bgColor = "#ef4444"; // แดง (ยังไม่ดำเนินการ)
-      let borderColor = "#dc2626";
+      let bgColor = "#ba1a1a"; // แดง (ยังไม่ดำเนินการ)
+      let borderColor = "#93000a";
       let textColor = "#ffffff";
 
       if (a.tele && a.hosxp) {
         // เขียว (โทรแล้ว + HosXP แล้ว)
-        bgColor = "#10b981";
-        borderColor = "#059669";
+        bgColor = "#1e7a3e";
+        borderColor = "#14572b";
       } else if (a.tele || a.hosxp) {
         // เหลือง/ส้ม (ดำเนินการบางส่วน)
-        bgColor = "#f59e0b";
-        borderColor = "#d97706";
+        bgColor = "#b57b00";
+        borderColor = "#8a5d00";
       }
 
       const deptPrefix = a.department ? `[${a.department}] ` : "";
