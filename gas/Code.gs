@@ -454,7 +454,13 @@ function sendDailyLineNotification(forceSend, overrideConfig) {
           }
           detailMsg += " [" + dList.join(", ") + "]";
         }
-        errDetail = "คำขอไม่ถูกต้อง (400 Bad Request): " + detailMsg + "\n(กรุณาตรวจดูว่าบอท LINE Official Account ได้ถูกเชิญเข้ากลุ่ม LINE แล้วหรือไม่ หรือ Destination ID ถูกต้องหรือไม่)";
+        var tip = "";
+        if (destinationId.indexOf("U") === 0) {
+          tip = "\n\n💡 สาเหตุสำหรับ User ID (UID):\n1. คุณต้องกด 'เพิ่มเพื่อน' (Add Friend) กับบอทตัวนี้ในแอป LINE ก่อน บอทจึงจะส่งข้อความหาได้\n2. ต้องเป็น UID จริงจากหน้า LINE Developers (แท็บ Basic settings > Your user ID) ภายใต้ Provider เดียวกันกับบอท";
+        } else if (destinationId.indexOf("C") === 0) {
+          tip = "\n\n💡 สาเหตุสำหรับ Group ID:\nบอทตัวนี้ต้องถูก 'เชิญเข้ากลุ่ม LINE' แล้วเท่านั้น จึงจะมีสิทธิ์ส่งข้อความเข้ากลุ่ม";
+        }
+        errDetail = "คำขอไม่ถูกต้อง (400 Bad Request): " + detailMsg + tip;
       }
     } catch (e) {}
     throw new Error("LINE API Error (" + responseCode + "): " + errDetail);
@@ -501,7 +507,13 @@ function sendTestLineMessage(overrideConfig) {
   if (code === 200) {
     return { success: true, message: "ส่งข้อความทดสอบสำเร็จ! ตรวจสอบข้อความในกลุ่ม LINE ได้เลยครับ" };
   } else {
-    throw new Error("ส่งข้อความทดสอบไม่สำเร็จ (" + code + "): " + body);
+    var tip = "";
+    if (destinationId.indexOf("U") === 0) {
+      tip = " (ข้อสังเกต: สำหรับ User ID ต้องกดเพิ่มเพื่อนกับบอทในแอป LINE ก่อนจึงจะส่งได้)";
+    } else if (destinationId.indexOf("C") === 0) {
+      tip = " (ข้อสังเกต: สำหรับ Group ID ต้องเชิญบอทเข้ากลุ่มก่อน)";
+    }
+    throw new Error("ส่งข้อความทดสอบไม่สำเร็จ (" + code + "): " + body + tip);
   }
 }
 
