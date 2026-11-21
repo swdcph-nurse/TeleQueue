@@ -7,6 +7,18 @@ const CONFIG = {
   SPREADSHEET_ID: "1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE",
   GITHUB_REPO_URL: "https://github.com/swdcph-nurse/TeleQueue",
   
+  // แผนกที่นัดหมายทั้งหมด
+  DEPARTMENTS: [
+    "อายุรกรรมทั่วไป",
+    "อายุรกรรมมะเร็ง",
+    "ศัลยกรรมทั่วไป",
+    "ออร์โธปิดิกส์",
+    "สูติ-นรีเวช",
+    "กุมารเวชกรรม",
+    "จักษุ",
+    "โสต ศอ นาสิก"
+  ],
+  
   // LocalStorage keys
   STORAGE_KEYS: {
     GAS_URL: "TELEQUEUE_GAS_URL",

@@ -124,17 +124,44 @@ const App = {
   switchTab: function(tabName) {
     this.activeTab = tabName;
 
-    // เปลี่ยนสถานะปุ่มแท็บ
-    document.querySelectorAll("[data-tab]").forEach(btn => {
+    // Desktop sidebar rail active state
+    document.querySelectorAll("aside [data-tab]").forEach(btn => {
       const active = btn.getAttribute("data-tab") === tabName;
       if (active) {
-        btn.classList.add("bg-sky-600", "text-white", "shadow-sm");
-        btn.classList.remove("text-slate-600", "hover:bg-slate-100");
+        btn.classList.add("nav-pill-active");
+        btn.classList.remove("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
       } else {
-        btn.classList.remove("bg-sky-600", "text-white", "shadow-sm");
-        btn.classList.add("text-slate-600", "hover:bg-slate-100");
+        btn.classList.remove("nav-pill-active");
+        btn.classList.add("text-slate-600", "hover:bg-slate-100", "hover:text-slate-900");
       }
     });
+
+    // Mobile bottom navigation active state
+    document.querySelectorAll("#mobileBottomNav [data-tab]").forEach(btn => {
+      const active = btn.getAttribute("data-tab") === tabName;
+      const iconC = btn.querySelector(".nav-icon-container");
+      if (active) {
+        btn.classList.add("text-sky-700", "font-bold");
+        btn.classList.remove("text-slate-500", "font-medium");
+        if (iconC) iconC.classList.add("bg-sky-100");
+      } else {
+        btn.classList.remove("text-sky-700", "font-bold");
+        btn.classList.add("text-slate-500", "font-medium");
+        if (iconC) iconC.classList.remove("bg-sky-100");
+      }
+    });
+
+    // อัปเดตชื่อหัวข้อแถบบนสุด
+    const topTitle = document.getElementById("topNavSectionTitle");
+    if (topTitle) {
+      const sectionTitles = {
+        dashboard: "ภาพรวมระบบ (Dashboard)",
+        today: "รายการนัดประจำวัน",
+        calendar: "ปฏิทินนัดหมาย",
+        manage: "จัดการนัดหมายทั้งหมด"
+      };
+      topTitle.textContent = sectionTitles[tabName] || tabName;
+    }
 
     // แสดง/ซ่อน Section
     const tabs = ["dashboard", "calendar", "today", "manage"];
@@ -243,7 +270,7 @@ const App = {
       container.innerHTML = `
         <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-emerald-800 flex items-center justify-between">
           <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-lg">✓</div>
+            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600">${Icons.check("w-5 h-5")}</div>
             <div>
               <h4 class="font-bold text-sm">การดำเนินการวันนี้ครบถ้วนทุกรายการแล้ว!</h4>
               <p class="text-xs text-emerald-600 mt-0.5">โทรนัดและลงบันทึกในระบบ HosXP ครบ 100%</p>
@@ -281,18 +308,18 @@ const App = {
                 ${badge}
               </div>
               <div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                <span>🩺 แพทย์: ${a.doctor || "-"}</span>
-                <span>📞 เบอร์: <a href="tel:${a.phone}" class="text-sky-600 font-bold hover:underline">${a.phone || "ไม่มีเบอร์"}</a></span>
-                <span>📝 ${a.notes || "ติดตามอาการ"}</span>
+                <span class="flex items-center gap-1">${Icons.stethoscope("w-3 h-3")} แพทย์: ${a.doctor || "-"}</span>
+                <span class="flex items-center gap-1">${Icons.phone("w-3 h-3")} เบอร์: <a href="tel:${a.phone}" class="text-sky-600 font-bold hover:underline">${a.phone || "ไม่มีเบอร์"}</a></span>
+                <span class="flex items-center gap-1">${Icons.fileText("w-3 h-3")} ${a.notes || "ติดตามอาการ"}</span>
               </div>
             </div>
           </div>
           <div class="flex items-center gap-2 shrink-0">
             <button onclick="App.quickToggleTele('${a.id}', ${!a.tele})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${a.tele ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100'}">
-              ${a.tele ? "✓ โทรแล้ว" : "📞 ยืนยันโทร"}
+              ${a.tele ? "โทรแล้ว" : "ยืนยันโทร"}
             </button>
             <button onclick="App.quickToggleHos('${a.id}', ${!a.hosxp})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${a.hosxp ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'}">
-              ${a.hosxp ? "✓ ลง Hos แล้ว" : "💻 ยืนยันลง Hos"}
+              ${a.hosxp ? "ลง Hos แล้ว" : "ยืนยันลง Hos"}
             </button>
           </div>
         </div>
@@ -328,12 +355,21 @@ const App = {
       return;
     }
 
-    const html = keys.map(k => `
-      <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-        <span class="font-bold text-slate-700 text-xs">${k}</span>
-        <span class="px-2 py-0.5 bg-sky-100 text-sky-800 rounded-full font-bold text-xs">${deptStats[k]} ราย</span>
-      </div>
-    `).join("");
+    const maxCount = Math.max(...keys.map(k => deptStats[k]), 1);
+
+    const html = keys.map(k => {
+      const count = deptStats[k];
+      const pct = Math.round((count / maxCount) * 100);
+      return `
+        <div class="flex items-center gap-3">
+          <span class="font-bold text-slate-700 text-xs w-28 shrink-0 truncate">${k}</span>
+          <div class="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+            <div class="bg-sky-500 h-full rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+          </div>
+          <span class="px-2 py-0.5 bg-sky-100 text-sky-800 rounded-full font-bold text-xs whitespace-nowrap">${count} ราย</span>
+        </div>
+      `;
+    }).join("");
 
     container.innerHTML = html;
   },
@@ -358,7 +394,7 @@ const App = {
       container.innerHTML = `
         <tr>
           <td colspan="7" class="py-12 text-center text-slate-400">
-            <div class="text-4xl mb-2">🗓</div>
+            <div class="text-slate-300 mb-2 flex justify-center">${Icons.calendar("w-10 h-10")}</div>
             <div class="font-semibold text-slate-600">ไม่มีรายการนัดหมายสำหรับวันที่ ${thaiDate}</div>
             <p class="text-xs text-slate-400 mt-1">สามารถกดปุ่ม "เพิ่มนัดหมายใหม่" เพื่อสร้างรายการ</p>
           </td>
@@ -377,7 +413,7 @@ const App = {
           <td class="py-3.5 px-4">
             <div class="font-bold text-slate-900 text-sm">${a.name}</div>
             <div class="text-xs text-slate-500 font-mono mt-0.5">HN: <span class="font-bold text-slate-700">${a.hn || "-"}</span> | ปชช: ${a.cid || "-"}</div>
-            ${a.lineName ? `<div class="text-[11px] text-emerald-600 font-medium">💬 Line: ${a.lineName}</div>` : ""}
+            ${a.lineName ? `<div class="text-[11px] text-emerald-600 font-medium flex items-center gap-1">${Icons.message("w-3 h-3")} LINE: ${a.lineName}</div>` : ""}
           </td>
           <td class="py-3.5 px-4 text-xs">
             <span class="inline-block px-2.5 py-1 rounded-md font-bold text-xs bg-sky-100 text-sky-800 mb-1">${a.department || "-"}</span>
@@ -387,12 +423,12 @@ const App = {
             ${a.phone ? `
               <div class="flex items-center gap-1.5">
                 <a href="tel:${a.phone.replace(/[^0-9]/g, "")}" class="font-bold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1">
-                  📞 ${a.phone}
+                  ${Icons.phone("w-3.5 h-3.5")} ${a.phone}
                 </a>
               </div>
             ` : `<span class="text-slate-400 italic">ไม่มีเบอร์โทร</span>`}
             <div class="text-slate-500 mt-1 text-[11px] line-clamp-2" title="${a.notes || ''}">
-              📝 ${a.notes || "-"}
+              ${Icons.fileText("w-3 h-3 inline")} ${a.notes || "-"}
             </div>
           </td>
           <!-- Checkbox TELE -->
@@ -418,10 +454,10 @@ const App = {
           <td class="py-3.5 px-4 text-right">
             <div class="flex items-center justify-end gap-1.5">
               <button onclick="App.openPatientDetailModalById('${a.id}')" class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg" title="ดูข้อมูล">
-                🔍
+                ${Icons.eye("w-4 h-4")}
               </button>
               <button onclick="App.openEditAppointmentModal('${a.id}')" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg" title="แก้ไข">
-                ✏️
+                ${Icons.edit("w-4 h-4")}
               </button>
             </div>
           </td>
@@ -430,6 +466,67 @@ const App = {
     }).join("");
 
     container.innerHTML = rows;
+
+    // === Mobile Cards View ===
+    const mobileContainer = document.getElementById("todayQueueMobileContainer");
+    if (mobileContainer) {
+      if (todayList.length === 0) {
+        mobileContainer.innerHTML = `
+          <div class="p-8 text-center text-slate-400">
+            <div class="mb-2 flex justify-center text-slate-300">${Icons.calendar("w-10 h-10")}</div>
+            <div class="font-semibold text-slate-600">ไม่มีรายการนัดสำหรับวันที่ ${thaiDate}</div>
+          </div>
+        `;
+      } else {
+        const cards = todayList.map(a => {
+          const isComplete = a.tele && a.hosxp;
+          return `
+            <div class="bg-white p-4 rounded-2xl border ${isComplete ? 'border-emerald-200 bg-emerald-50/20' : 'border-slate-200'} shadow-xs space-y-3">
+              <div>
+                <div class="font-bold text-slate-900">${a.name}</div>
+                <div class="text-xs text-slate-500 font-mono mt-0.5">HN <strong class="text-slate-700">${a.hn || "-"}</strong> | ปชช. ${a.cid || "-"}</div>
+                ${a.lineName ? `<div class="text-xs text-emerald-600 font-medium mt-0.5 flex items-center gap-1">${Icons.message("w-3 h-3")} LINE: ${a.lineName}</div>` : ""}
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="px-2.5 py-1 rounded-lg text-xs font-bold bg-sky-100 text-sky-800">${a.department || "-"}</span>
+                <span class="text-xs text-slate-600 flex items-center gap-1">${Icons.stethoscope("w-3 h-3")} พ. ${a.doctor || "-"}</span>
+              </div>
+              ${a.phone ? `<div class="text-xs"><a href="tel:${a.phone.replace(/[^0-9]/g, '')}" class="font-bold text-emerald-600 hover:underline flex items-center gap-1">${Icons.phone("w-3.5 h-3.5")} ${a.phone}</a></div>` : `<div class="text-xs text-slate-400 italic">ไม่มีเบอร์โทร</div>`}
+              ${a.notes ? `<div class="text-xs text-slate-500 flex items-start gap-1">${Icons.fileText("w-3 h-3 mt-0.5 shrink-0")} ${a.notes}</div>` : ""}
+              <div class="grid grid-cols-2 gap-2">
+                <label class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col items-center gap-1.5 cursor-pointer select-none">
+                  <span class="text-[11px] font-bold text-slate-600">โทรนัด (TELE)</span>
+                  <input type="checkbox" ${a.tele ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'tele', this.checked)" class="w-5 h-5 rounded text-emerald-600 cursor-pointer">
+                  <span class="text-[10px] font-semibold ${a.tele ? 'text-emerald-700' : 'text-slate-400'}">${a.tele ? 'โทรแล้ว' : 'ยังไม่โทร'}</span>
+                </label>
+                <label class="bg-slate-50 p-3 rounded-xl border border-slate-200 flex flex-col items-center gap-1.5 cursor-pointer select-none">
+                  <span class="text-[11px] font-bold text-slate-600">บันทึก HosXP</span>
+                  <input type="checkbox" ${a.hosxp ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'hosxp', this.checked)" class="w-5 h-5 rounded text-indigo-600 cursor-pointer">
+                  <span class="text-[10px] font-semibold ${a.hosxp ? 'text-indigo-700' : 'text-slate-400'}">${a.hosxp ? 'ลง Hos แล้ว' : 'ยังไม่ลง'}</span>
+                </label>
+              </div>
+              <div class="flex items-center justify-end gap-2 pt-1 border-t border-slate-100">
+                <button onclick="App.openPatientDetailModalById('${a.id}')" class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg" title="ดูข้อมูล">${Icons.eye("w-4 h-4")}</button>
+                <button onclick="App.openEditAppointmentModal('${a.id}')" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg" title="แก้ไข">${Icons.edit("w-4 h-4")}</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+        mobileContainer.innerHTML = cards;
+      }
+    }
+  },
+
+  // เลื่อนวันในหน้าคิว +1 / -1
+  navigateQueueDate: function(delta) {
+    const current = this.currentQueueDate || getTodayIso();
+    const d = new Date(current);
+    d.setDate(d.getDate() + delta);
+    const iso = d.toISOString().substring(0, 10);
+    this.currentQueueDate = iso;
+    const queueInput = document.getElementById("queueDateInput");
+    if (queueInput) queueInput.value = iso;
+    this.renderTodayQueue();
   },
 
   // เปลี่ยนวันในหน้าคิว
@@ -539,7 +636,7 @@ const App = {
       tbody.innerHTML = `
         <tr>
           <td colspan="8" class="py-12 text-center text-slate-400">
-            <div class="text-3xl mb-1">🔍</div>
+            <div class="text-slate-300 mb-1 flex justify-center">${Icons.search("w-8 h-8")}</div>
             <div class="font-semibold text-slate-600">ไม่พบนัดหมายที่ตรงกับเงื่อนไข</div>
             <p class="text-xs text-slate-400 mt-1">ลองเปลี่ยนคำค้นหา หรือล้างตัวกรอง</p>
           </td>
@@ -551,11 +648,11 @@ const App = {
     const rows = filtered.map((a, idx) => {
       let statusBadge = "";
       if (a.tele && a.hosxp) {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ ครบถ้วน</span>`;
+        statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">${Icons.check("w-3 h-3")} ครบถ้วน</span>`;
       } else if (a.tele || a.hosxp) {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">⏳ บางส่วน</span>`;
+        statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">${Icons.clock("w-3 h-3")} บางส่วน</span>`;
       } else {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">✕ รอเริ่ม</span>`;
+        statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">${Icons.alertTriangle("w-3 h-3")} รอเริ่ม</span>`;
       }
 
       return `
@@ -601,6 +698,57 @@ const App = {
     }).join("");
 
     tbody.innerHTML = rows;
+
+    // === Mobile Manage Cards ===
+    const manageCards = document.getElementById("manageCardsMobileContainer");
+    if (manageCards) {
+      if (filtered.length === 0) {
+        manageCards.innerHTML = `
+          <div class="p-8 text-center text-slate-400">
+            <div class="text-slate-300 mb-1 flex justify-center">${Icons.search("w-8 h-8")}</div>
+            <div class="font-semibold text-slate-600">ไม่พบนัดหมายที่ตรงกับเงื่อนไข</div>
+          </div>
+        `;
+      } else {
+        const mcards = filtered.map(a => {
+          let statusBadge = "";
+          if (a.tele && a.hosxp) {
+            statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">${Icons.check("w-3 h-3")} ครบถ้วน</span>`;
+          } else if (a.tele || a.hosxp) {
+            statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">${Icons.clock("w-3 h-3")} บางส่วน</span>`;
+          } else {
+            statusBadge = `<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">${Icons.alertTriangle("w-3 h-3")} รอเริ่ม</span>`;
+          }
+          return `
+            <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-2.5">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="font-bold text-slate-900 text-sm">${a.name}</div>
+                  <div class="text-[11px] text-slate-500 font-mono">HN: ${a.hn || "-"}</div>
+                </div>
+                ${statusBadge}
+              </div>
+              <div class="flex items-center gap-2 text-xs">
+                <span class="font-bold text-slate-600">${a.thaiDate}</span>
+                <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">${a.department || "-"}</span>
+                <span class="text-slate-500">พ. ${a.doctor || "-"}</span>
+              </div>
+              <div class="text-xs text-slate-600">
+                ${a.phone ? `<span class="font-semibold">${a.phone}</span>` : "-"}
+                ${a.lineName ? `<span class="text-slate-400 ml-1">LINE: ${a.lineName}</span>` : ""}
+              </div>
+              ${a.notes ? `<div class="text-xs text-slate-500 truncate">${a.notes}</div>` : ""}
+              <div class="flex items-center justify-end gap-1.5 pt-1.5 border-t border-slate-100">
+                <button onclick="App.openPatientDetailModalById('${a.id}')" class="px-2.5 py-1 text-slate-500 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center gap-1">${Icons.eye("w-3.5 h-3.5")} ดู</button>
+                <button onclick="App.openEditAppointmentModal('${a.id}')" class="px-2.5 py-1 text-sky-600 hover:bg-sky-50 rounded-lg text-xs font-semibold flex items-center gap-1">${Icons.edit("w-3.5 h-3.5")} แก้ไข</button>
+                <button onclick="App.confirmDeleteAppointment('${a.id}')" class="px-2.5 py-1 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-semibold flex items-center gap-1">${Icons.trash("w-3.5 h-3.5")} ลบ</button>
+              </div>
+            </div>
+          `;
+        }).join("");
+        manageCards.innerHTML = mcards;
+      }
+    }
   },
 
   // ==========================================
@@ -616,7 +764,7 @@ const App = {
     if (idInput) idInput.value = "";
 
     const titleEl = document.getElementById("appointmentModalTitle");
-    if (titleEl) titleEl.textContent = "➕ เพิ่มนัดหมาย Telemed ใหม่";
+    if (titleEl) titleEl.textContent = "เพิ่มนัดหมาย Telemed ใหม่";
 
     const dateInput = document.getElementById("formDate");
     if (dateInput) dateInput.value = this.currentQueueDate || getTodayIso();
@@ -637,7 +785,7 @@ const App = {
     if (idInput) idInput.value = apt.id;
 
     const titleEl = document.getElementById("appointmentModalTitle");
-    if (titleEl) titleEl.textContent = "✏️ แก้ไขข้อมูลนัดหมาย";
+    if (titleEl) titleEl.textContent = "แก้ไขข้อมูลนัดหมาย";
 
     document.getElementById("formDate").value = apt.date || "";
     document.getElementById("formName").value = apt.name || "";
@@ -743,7 +891,7 @@ const App = {
                   <li>เปิด Google Apps Script ในชีตของคุณ</li>
                   <li>กด <strong>การทำให้ใช้งานได้ (Deploy)</strong> > <strong>การทำให้ใช้งานได้รายการใหม่ (New deployment)</strong></li>
                   <li>เลือก <strong>เว็บแอป (Web app)</strong> และตั้งสิทธิ์เข้าถึง (Who has access) เป็น <strong>ทุกคน (Anyone)</strong></li>
-                  <li>คัดลอก Web App URL มาใส่ในเมนู <strong>⚙️ ตั้งค่า</strong> มุมบนขวาของหน้าเว็บนี้ แล้วกดบันทึก</li>
+                  <li>คัดลอก Web App URL มาใส่ในเมนู <strong>ตั้งค่า</strong> มุมบนขวาของหน้าเว็บนี้ แล้วกดบันทึก</li>
                 </ol>
               </div>
             </div>
@@ -753,7 +901,7 @@ const App = {
       } else {
         Swal.fire({
           icon: "success",
-          title: "บันทึกลง Google Sheets สำเร็จ! 🎉",
+          title: "บันทึกลง Google Sheets สำเร็จ!",
           text: `บันทึกข้อมูลของ ${name} เรียบร้อยแล้ว`,
           timer: 2000,
           showConfirmButton: false
@@ -816,12 +964,12 @@ const App = {
     if (!container) return;
 
     const statusTele = apt.tele ? 
-      `<span class="text-emerald-700 font-bold">✓ โทรนัดแล้ว (${apt.teleOperator || 'เจ้าหน้าที่'} - ${apt.teleTime || ''})</span>` :
-      `<span class="text-rose-600 font-bold">✕ ยังไม่ได้โทร</span>`;
+      `<span class="text-emerald-700 font-bold">โทรนัดแล้ว (${apt.teleOperator || 'เจ้าหน้าที่'} - ${apt.teleTime || ''})</span>` :
+      `<span class="text-rose-600 font-bold">ยังไม่ได้โทร</span>`;
 
     const statusHos = apt.hosxp ? 
-      `<span class="text-indigo-700 font-bold">✓ ลงบันทึก HosXP แล้ว (${apt.hosOperator || 'เจ้าหน้าที่'} - ${apt.hosTime || ''})</span>` :
-      `<span class="text-rose-600 font-bold">✕ ยังไม่ได้ลง HosXP</span>`;
+      `<span class="text-indigo-700 font-bold">ลงบันทึก HosXP แล้ว (${apt.hosOperator || 'เจ้าหน้าที่'} - ${apt.hosTime || ''})</span>` :
+      `<span class="text-rose-600 font-bold">ยังไม่ได้ลง HosXP</span>`;
 
     container.innerHTML = `
       <div class="space-y-4 text-sm font-sans">
@@ -830,7 +978,7 @@ const App = {
             <h3 class="text-lg font-bold text-slate-900">${apt.name}</h3>
             <div class="text-xs text-slate-500 font-mono mt-0.5">HN: <strong class="text-slate-800">${apt.hn || "-"}</strong> | เลข ปชช: ${apt.cid || "-"}</div>
             <div class="mt-2 text-xs text-sky-800 font-medium">
-              🗓 วันนัด: <strong>${apt.thaiDate} (${apt.date})</strong>
+              วันนัด: <strong>${apt.thaiDate} (${apt.date})</strong>
             </div>
           </div>
           <span class="px-3 py-1 bg-sky-200 text-sky-900 font-bold text-xs rounded-full">${apt.department || "MED"}</span>
@@ -845,7 +993,7 @@ const App = {
             <span class="text-slate-400 block mb-0.5">เบอร์โทรศัพท์</span>
             ${apt.phone ? `
               <a href="tel:${apt.phone.replace(/[^0-9]/g, "")}" class="font-bold text-emerald-600 hover:underline text-sm flex items-center gap-1">
-                📞 ${apt.phone}
+                ${Icons.phone("w-3.5 h-3.5")} ${apt.phone}
               </a>
             ` : `<span class="text-slate-400">ไม่มีเบอร์โทร</span>`}
           </div>
@@ -865,16 +1013,16 @@ const App = {
 
         <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 text-xs">
           <div class="font-bold text-slate-700">สถานะการปฏิบัติงาน:</div>
-          <div>📞 การโทรนัด: ${statusTele}</div>
-          <div>💻 การลงบันทึก HosXP: ${statusHos}</div>
+          <div class="flex items-center gap-1">${Icons.phone("w-3.5 h-3.5")} การโทรนัด: ${statusTele}</div>
+          <div class="flex items-center gap-1">${Icons.checkCircle("w-3.5 h-3.5")} การลงบันทึก HosXP: ${statusHos}</div>
         </div>
 
         <div class="flex gap-2 pt-2">
           <button onclick="App.quickToggleTele('${apt.id}', ${!apt.tele}); App.closePatientDetailModal();" class="flex-1 py-2 px-3 text-xs font-bold rounded-xl ${apt.tele ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'}">
-            ${apt.tele ? 'ยกเลิกสถานะโทร' : '✓ บันทึกว่าโทรแล้ว'}
+            ${apt.tele ? 'ยกเลิกสถานะโทร' : 'บันทึกว่าโทรแล้ว'}
           </button>
           <button onclick="App.quickToggleHos('${apt.id}', ${!apt.hosxp}); App.closePatientDetailModal();" class="flex-1 py-2 px-3 text-xs font-bold rounded-xl ${apt.hosxp ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'}">
-            ${apt.hosxp ? 'ยกเลิกสถานะ Hos' : '✓ บันทึกว่าลง HosXP แล้ว'}
+            ${apt.hosxp ? 'ยกเลิกสถานะ Hos' : 'บันทึกว่าลง HosXP แล้ว'}
           </button>
         </div>
       </div>
@@ -999,7 +1147,7 @@ const App = {
       if (res && res.success && !res.fromCache) {
         Swal.fire({
           icon: "success",
-          title: "เชื่อมต่อ Google Sheets สำเร็จ! 🎉",
+          title: "เชื่อมต่อ Google Sheets สำเร็จ!",
           text: `ดึงข้อมูลได้สำเร็จ จำนวน ${res.data ? res.data.length : 0} รายการ ระบบพร้อมบันทึกข้อมูลลงชีตแล้วครับ`,
           confirmButtonColor: "#10b981"
         });
@@ -1129,7 +1277,7 @@ const App = {
       if (res && res.success) {
         Swal.fire({
           icon: "success",
-          title: "ส่งข้อความทดสอบสำเร็จ! 🎉",
+          title: "ส่งข้อความทดสอบสำเร็จ!",
           text: "ข้อความทดสอบถูกส่งเข้ากลุ่ม LINE เรียบร้อยแล้ว กรุณาเปิดดูในแอป LINE",
           confirmButtonColor: "#10b981"
         });

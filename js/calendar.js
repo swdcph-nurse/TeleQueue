@@ -65,13 +65,13 @@ const CalendarModule = {
       eventDidMount: function(info) {
         // Tooltip แสดงรายละเอียดเมื่อชี้เมาส์
         const p = info.event.extendedProps;
-        const statusText = (p.tele && p.hosxp) ? "✅ ดำเนินการครบแล้ว" :
-                           (p.tele && !p.hosxp) ? "⚠️ โทรแล้ว (ยังไม่ลง Hos)" :
-                           (!p.tele && p.hosxp) ? "⚠️ ลง Hos แล้ว (ยังไม่โทร)" :
-                           "❌ ยังไม่โทรและยังไม่ลง Hos";
+        const statusText = (p.tele && p.hosxp) ? "[ครบถ้วน] ดำเนินการครบแล้ว" :
+                           (p.tele && !p.hosxp) ? "[รอลง Hos] โทรแล้ว (ยังไม่ลง Hos)" :
+                           (!p.tele && p.hosxp) ? "[รอโทร] ลง Hos แล้ว (ยังไม่โทร)" :
+                           "[รอดำเนินการ] ยังไม่โทรและยังไม่ลง Hos";
         
         info.el.setAttribute("title", 
-          `👤 ${p.name || "-"}\nHN: ${p.hn || "-"}\n🩺 แผนก: ${p.department || "-"}\n📞 เบอร์: ${p.phone || "-"}\n📝 นัดเพื่อ: ${p.notes || "-"}\n📊 สถานะ: ${statusText}`
+          `${p.name || "-"}\nHN: ${p.hn || "-"}\nแผนก: ${p.department || "-"}\nเบอร์: ${p.phone || "-"}\nนัดเพื่อ: ${p.notes || "-"}\nสถานะ: ${statusText}`
         );
       }
     });

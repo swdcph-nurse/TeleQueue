@@ -47,7 +47,7 @@ const LineNotificationModule = {
       if (pending.length === 0) {
         previewContainer.innerHTML = `
           <div class="p-6 text-center text-slate-500 bg-emerald-50 rounded-2xl border border-emerald-200">
-            <div class="text-4xl mb-2">🎉</div>
+            <div class="text-emerald-500 mb-2 flex justify-center">${Icons.checkCircle("w-10 h-10")}</div>
             <h4 class="font-bold text-emerald-800 text-lg">ดำเนินการโทรครบแล้วทุกราย</h4>
             <p class="text-sm text-emerald-600 mt-1">ไม่มีผู้ป่วยที่ค้างโทรสำหรับวันนี้ (${thaiDateStr})</p>
           </div>
@@ -68,7 +68,7 @@ const LineNotificationModule = {
               ${p.lineName ? `<span class="text-slate-500">Line: ${p.lineName}</span>` : ""}
             </div>
             <div class="text-slate-500 bg-white p-1.5 rounded border border-slate-100">
-              📝 ${p.notes || "ติดตามอาการ"}
+              ${Icons.fileText("w-3 h-3 inline")} ${p.notes || "ติดตามอาการ"}
             </div>
           </div>
         `).join("");
@@ -76,16 +76,16 @@ const LineNotificationModule = {
         previewContainer.innerHTML = `
           <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-sans">
             <div class="bg-sky-600 p-4 text-white">
-              <div class="text-xs font-semibold uppercase tracking-wider text-sky-100">🏥 ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ</div>
-              <h3 class="text-base font-bold mt-0.5">📞 แจ้งเตือนนัด TELEMED ประจำวัน</h3>
-              <div class="text-xs text-amber-200 font-medium mt-1">🗓 ${thaiDateStr} (รอโทร ${pending.length} ท่าน)</div>
+              <div class="text-xs font-semibold uppercase tracking-wider text-sky-100">ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ</div>
+              <h3 class="text-base font-bold mt-0.5">แจ้งเตือนนัด TELEMED ประจำวัน</h3>
+              <div class="text-xs text-amber-200 font-medium mt-1">${thaiDateStr} (รอโทร ${pending.length} ท่าน)</div>
             </div>
             <div class="p-3 space-y-2 max-h-72 overflow-y-auto">
               ${itemsHtml}
             </div>
             <div class="p-3 bg-slate-50 border-t border-slate-100 text-center">
               <span class="inline-block w-full py-2 bg-sky-600 text-white text-xs font-bold rounded-lg shadow-sm">
-                📋 เปิดระบบ TeleQueue เช็คคิว
+                เปิดระบบ TeleQueue เช็คคิว
               </span>
               <p class="text-[10px] text-slate-400 mt-1">ส่งผ่าน LINE Messaging API อัตโนมัติ</p>
             </div>
