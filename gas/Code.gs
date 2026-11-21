@@ -204,15 +204,38 @@ function getAppointmentsByDate(targetDateIso) {
 }
 
 /**
+ * ค้นหาแถวว่างแถวแรกสำหรับบันทึกข้อมูลใหม่
+ * (แก้ปัญหาใน Google Sheets ที่มีแถวเปล่าที่ติด Checkbox False ค้างอยู่ด้านล่างหลายร้อยแถว)
+ */
+function findNextAvailableRow(sheet) {
+  var lastRow = sheet.getLastRow();
+  if (lastRow < DATA_START_ROW) return DATA_START_ROW;
+  
+  var numRows = lastRow - DATA_START_ROW + 1;
+  // อ่านเฉพาะคอลัมน์ B (ชื่อ-สกุล) และคอลัมน์ D (HN)
+  var names = sheet.getRange(DATA_START_ROW, 2, numRows, 1).getValues();
+  var hns = sheet.getRange(DATA_START_ROW, 4, numRows, 1).getValues();
+  
+  for (var i = 0; i < names.length; i++) {
+    var nameVal = String(names[i][0] || "").trim();
+    var hnVal = String(hns[i][0] || "").trim();
+    // ถ้าชื่อและ HN ว่าง แสดงว่าเป็นแถวว่างพร้อมเขียนข้อมูล
+    if (!nameVal && !hnVal) {
+      return DATA_START_ROW + i;
+    }
+  }
+  
+  return lastRow + 1;
+}
+
+/**
  * เพิ่มนัดหมายใหม่
  */
 function addAppointment(data) {
   var sheet = getTargetSheet();
   ensureExtraHeaders(sheet);
   
-  var lastRow = sheet.getLastRow();
-  var nextRow = lastRow + 1;
-  
+  var nextRow = findNextAvailableRow(sheet);
   var dateVal = data.date || Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
   
   var newRow = [
@@ -240,7 +263,7 @@ function addAppointment(data) {
   
   return {
     success: true,
-    message: "บันทึกข้อมูลนัดหมายใหม่เรียบร้อยแล้ว",
+    message: "บันทึกข้อมูลนัดหมายใหม่ลงแถวที่ " + nextRow + " เรียบร้อยแล้ว",
     rowIndex: nextRow,
     data: newRow
   };

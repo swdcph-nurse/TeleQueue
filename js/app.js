@@ -474,17 +474,18 @@ const App = {
 
     // บันทึกลง Google Sheets ผ่าน API
     try {
-      await ApiService.updateStatus(apt.rowIndex, field, isChecked, opName);
+      const res = await ApiService.updateStatus(apt.rowIndex, field, isChecked, opName);
       
       const fieldTitle = field === "tele" ? "ยืนยันการโทร" : "ยืนยันบันทึก HosXP";
+      const syncNote = (res && res.fromCache) ? " (บันทึกในเครื่องชั่วคราว)" : " (ลง Google Sheets แล้ว)";
       Swal.fire({
         toast: true,
         position: "top-end",
         icon: "success",
         title: `${fieldTitle}: ${apt.name}`,
-        text: `ผู้บันทึก: ${opName}`,
+        text: `ผู้บันทึก: ${opName}${syncNote}`,
         showConfirmButton: false,
-        timer: 1800
+        timer: 2000
       });
     } catch (e) {
       console.error("Update status error:", e);
@@ -713,26 +714,51 @@ const App = {
     });
 
     try {
+      let res;
       if (id) {
         // แก้ไข
         const existing = DataStore.getById(id);
         payload.id = id;
         payload.rowIndex = existing ? existing.rowIndex : null;
-        await ApiService.updateAppointment(payload);
+        res = await ApiService.updateAppointment(payload);
       } else {
         // เพิ่มใหม่
-        await ApiService.addAppointment(payload);
+        res = await ApiService.addAppointment(payload);
       }
 
       this.closeAppointmentModal();
       this.renderAllViews();
 
-      Swal.fire({
-        icon: "success",
-        title: "บันทึกข้อมูลสำเร็จ",
-        timer: 1500,
-        showConfirmButton: false
-      });
+      if (res && res.fromCache) {
+        Swal.fire({
+          icon: "warning",
+          title: "บันทึกในเครื่องแล้ว (แต่ยังไม่ลง Google Sheets)",
+          html: `
+            <div class="text-left text-xs space-y-2">
+              <p class="text-amber-800 font-bold">ข้อมูลแสดงบนหน้าเว็บแล้ว แต่ยังไม่สามารถส่งเข้า Google Sheets ได้</p>
+              <p class="text-slate-600"><strong>สาเหตุ:</strong> ${res.errorMessage ? res.errorMessage : "ยังไม่ได้ระบุ Web App URL หรือ URL ยังเชื่อมต่อไม่ได้"}</p>
+              <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 mt-2">
+                <p class="font-bold text-amber-900">วิธีเปิดการเชื่อมต่อกับ Google Sheets:</p>
+                <ol class="list-decimal pl-4 space-y-1 text-slate-700 mt-1">
+                  <li>เปิด Google Apps Script ในชีตของคุณ</li>
+                  <li>กด <strong>การทำให้ใช้งานได้ (Deploy)</strong> > <strong>การทำให้ใช้งานได้รายการใหม่ (New deployment)</strong></li>
+                  <li>เลือก <strong>เว็บแอป (Web app)</strong> และตั้งสิทธิ์เข้าถึง (Who has access) เป็น <strong>ทุกคน (Anyone)</strong></li>
+                  <li>คัดลอก Web App URL มาใส่ในเมนู <strong>⚙️ ตั้งค่า</strong> มุมบนขวาของหน้าเว็บนี้ แล้วกดบันทึก</li>
+                </ol>
+              </div>
+            </div>
+          `,
+          confirmButtonColor: "#0284c7"
+        });
+      } else {
+        Swal.fire({
+          icon: "success",
+          title: "บันทึกลง Google Sheets สำเร็จ! 🎉",
+          text: `บันทึกข้อมูลของ ${name} เรียบร้อยแล้ว`,
+          timer: 2000,
+          showConfirmButton: false
+        });
+      }
     } catch (err) {
       Swal.fire({
         icon: "error",
@@ -935,6 +961,70 @@ const App = {
       timer: 1500,
       showConfirmButton: false
     });
+  },
+
+  // ทดสอบการเชื่อมต่อกับ Google Apps Script Web App
+  testGasConnectionFromSettings: async function() {
+    const url = document.getElementById("settingGasUrl").value.trim();
+    if (!url) {
+      Swal.fire({
+        icon: "warning",
+        title: "ยังไม่ได้ระบุ Web App URL",
+        text: "กรุณาวาง URL เว็บแอปจาก Google Apps Script ก่อนทดสอบ",
+        confirmButtonColor: "#0284c7"
+      });
+      return;
+    }
+
+    if (!url.startsWith("https://script.google.com/macros/s/")) {
+      Swal.fire({
+        icon: "warning",
+        title: "รูปแบบ URL ไม่ถูกต้อง",
+        text: "URL ของ Google Apps Script จะต้องขึ้นต้นด้วย https://script.google.com/macros/s/.../exec",
+        confirmButtonColor: "#0284c7"
+      });
+      return;
+    }
+
+    Swal.fire({
+      title: "กำลังทดสอบเชื่อมต่อ Google Sheets...",
+      text: "กำลังดึงข้อมูลทดสอบจากชีต",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    try {
+      CONFIG.setGasUrl(url);
+      const res = await ApiService.request("getAll");
+      if (res && res.success && !res.fromCache) {
+        Swal.fire({
+          icon: "success",
+          title: "เชื่อมต่อ Google Sheets สำเร็จ! 🎉",
+          text: `ดึงข้อมูลได้สำเร็จ จำนวน ${res.data ? res.data.length : 0} รายการ ระบบพร้อมบันทึกข้อมูลลงชีตแล้วครับ`,
+          confirmButtonColor: "#10b981"
+        });
+      } else {
+        throw new Error(res ? res.errorMessage || res.message : "ไม่สามารถเชื่อมต่อได้");
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "เชื่อมต่อ Google Sheets ไม่สำเร็จ",
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <p class="text-rose-600 font-bold">${err.message}</p>
+            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-slate-700">
+              <p class="font-bold mb-1">สาเหตุที่พบบ่อย:</p>
+              <ul class="list-disc pl-4 space-y-1">
+                <li>สิทธิ์เข้าถึงไม่ได้ตั้งเป็น <strong>ทุกคน (Anyone)</strong>: ใน Apps Script ให้เลือก Deploy > New deployment > Who has access เป็น <strong>Anyone</strong></li>
+                <li>URL ไม่ลงท้ายด้วย <code>/exec</code> (ต้องเป็น URL จากการ Deploy เป็น Web app เท่านั้น)</li>
+              </ul>
+            </div>
+          </div>
+        `,
+        confirmButtonColor: "#ef4444"
+      });
+    }
   },
 
   // ทดสอบ LINE Token จากหน้าต่างตั้งค่า
