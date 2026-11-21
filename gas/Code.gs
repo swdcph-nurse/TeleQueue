@@ -365,6 +365,19 @@ function sendDailyLineNotification(forceSend, overrideConfig) {
       message: "ยังไม่ได้ระบุ LINE Destination ID (Group ID หรือ User ID)"
     };
   }
+
+  // ตรวจสอบรูปแบบของ Destination ID (ต้องขึ้นต้นด้วย U, C หรือ R ตามด้วยตัวเลข/ตัวอักษร 32 ตัว)
+  var isLineIdPattern = /^[URC][0-9a-zA-Z]{32}$/.test(destinationId);
+  if (!isLineIdPattern) {
+    throw new Error(
+      "LINE Destination ID ไม่ถูกต้อง: \"" + destinationId + "\"\n\n" +
+      "⚠️ ข้อสังเกตสำคัญ:\n" +
+      "1. ช่องนี้ต้องเป็น 'Group ID' (ขึ้นต้นด้วยตัว C ตามด้วยตัวอักษร 32 ตัว เช่น C8d1f2a34b5...)\n" +
+      "   หรือเป็น 'User ID' (ขึ้นต้นด้วยตัว U ตามด้วยตัวอักษร 32 ตัว เช่น U1a2b3c4d5...)\n" +
+      "2. ไม่สามารถใช้ 'ชื่อกลุ่ม LINE', 'ลิงก์เชิญกลุ่ม' หรือ 'LINE ID / @ID' ได้\n" +
+      "3. บอท LINE Official Account จะต้องถูกเชิญเข้ากลุ่ม LINE นั้นแล้ว จึงจะสามารถส่งข้อความได้"
+    );
+  }
   
   var today = new Date();
   var todayIso = Utilities.formatDate(today, "Asia/Bangkok", "yyyy-MM-dd");
@@ -432,10 +445,63 @@ function sendDailyLineNotification(forceSend, overrideConfig) {
       if (responseCode === 401) {
         errDetail = "Token ไม่ถูกต้อง (401 Unauthorized): " + (parsed.message || "") + " กรุณาตรวจสอบ Channel access token";
       } else if (responseCode === 400) {
-        errDetail = "คำขอไม่ถูกต้อง (400 Bad Request): " + (parsed.message || "");
+        var detailMsg = parsed.message || "";
+        if (parsed.details && parsed.details.length > 0) {
+          var dList = [];
+          for (var k = 0; k < parsed.details.length; k++) {
+            var item = parsed.details[k];
+            dList.push((item.property ? item.property + ": " : "") + item.message);
+          }
+          detailMsg += " [" + dList.join(", ") + "]";
+        }
+        errDetail = "คำขอไม่ถูกต้อง (400 Bad Request): " + detailMsg + "\n(กรุณาตรวจดูว่าบอท LINE Official Account ได้ถูกเชิญเข้ากลุ่ม LINE แล้วหรือไม่ หรือ Destination ID ถูกต้องหรือไม่)";
       }
     } catch (e) {}
     throw new Error("LINE API Error (" + responseCode + "): " + errDetail);
+  }
+}
+
+/**
+ * ฟังก์ชันส่งข้อความทดสอบแบบ Text ธรรมดา (สำหรับเช็คว่า Token และ Group ID ส่งถึงจริง)
+ */
+function sendTestLineMessage(overrideConfig) {
+  var config = getConfig();
+  var overrideToken = (overrideConfig && overrideConfig.lineChannelAccessToken) ? overrideConfig.lineChannelAccessToken : "";
+  var overrideDest = (overrideConfig && overrideConfig.lineDestinationId) ? overrideConfig.lineDestinationId : "";
+  
+  var accessToken = sanitizeLineToken(overrideToken || config.lineChannelAccessToken);
+  var destinationId = String(overrideDest || config.lineDestinationId || "").trim();
+  
+  if (!accessToken) throw new Error("ยังไม่ได้ระบุ Token");
+  if (!destinationId) throw new Error("ยังไม่ได้ระบุ Destination ID");
+
+  var url = "https://api.line.me/v2/bot/message/push";
+  var payload = {
+    to: destinationId,
+    messages: [
+      {
+        type: "text",
+        text: "🔔 ทดสอบการแจ้งเตือนจากระบบ TeleQueue\nหอผู้ป่วยพิเศษปาริฉัตร-หอสงฆ์อาพาธ\nการเชื่อมต่อระหว่าง Google Sheets และ LINE สำเร็จสมบูรณ์แล้วครับ! 🎉"
+      }
+    ]
+  };
+
+  var res = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + accessToken
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  var code = res.getResponseCode();
+  var body = res.getContentText();
+  if (code === 200) {
+    return { success: true, message: "ส่งข้อความทดสอบสำเร็จ! ตรวจสอบข้อความในกลุ่ม LINE ได้เลยครับ" };
+  } else {
+    throw new Error("ส่งข้อความทดสอบไม่สำเร็จ (" + code + "): " + body);
   }
 }
 
@@ -494,6 +560,40 @@ function buildTelemedFlexMessage(patients, thaiDateStr, appUrl) {
       var p = pagePatients[idx];
       var num = page * itemsPerPage + idx + 1;
       
+      var cleanPhone = p.phone ? String(p.phone).replace(/[^0-9]/g, "") : "";
+      var phoneBox = {
+        type: "box",
+        layout: "baseline",
+        margin: "xs",
+        contents: [
+          { type: "text", text: "เบอร์โทร:", size: "xs", color: "#64748b", flex: 2 }
+        ]
+      };
+
+      if (cleanPhone.length >= 9) {
+        phoneBox.contents.push({
+          type: "text",
+          text: String(p.phone),
+          size: "xs",
+          weight: "bold",
+          color: "#059669",
+          action: {
+            type: "uri",
+            uri: "tel:" + cleanPhone
+          },
+          flex: 4
+        });
+      } else {
+        phoneBox.contents.push({
+          type: "text",
+          text: p.phone ? String(p.phone) : "ไม่มีเบอร์โทร",
+          size: "xs",
+          weight: "bold",
+          color: p.phone ? "#334155" : "#dc2626",
+          flex: 4
+        });
+      }
+
       var box = {
         type: "box",
         layout: "vertical",
@@ -545,27 +645,7 @@ function buildTelemedFlexMessage(patients, thaiDateStr, appUrl) {
               { type: "text", text: p.doctor || "-", size: "xs", color: "#334155", flex: 4 }
             ]
           },
-          {
-            type: "box",
-            layout: "baseline",
-            margin: "xs",
-            contents: [
-              { type: "text", text: "เบอร์โทร:", size: "xs", color: "#64748b", flex: 2 },
-              {
-                type: "text",
-                text: p.phone ? String(p.phone) : "ไม่มีเบอร์โทร",
-                size: "xs",
-                weight: "bold",
-                color: p.phone ? "#059669" : "#dc2626",
-                action: p.phone ? {
-                  type: "uri",
-                  label: "โทร",
-                  uri: "tel:" + String(p.phone).replace(/[^0-9]/g, "")
-                } : undefined,
-                flex: 4
-              }
-            ]
-          },
+          phoneBox,
           {
             type: "box",
             layout: "baseline",
@@ -645,8 +725,8 @@ function buildTelemedFlexMessage(patients, thaiDateStr, appUrl) {
             height: "sm",
             action: {
               type: "uri",
-              label: "📋 เปิดระบบ TeleQueue เช็คคิว",
-              uri: appUrl
+              label: "📋 เช็คคิว TeleQueue",
+              uri: appUrl || "https://swdcph-nurse.github.io/TeleQueue/"
             }
           },
           {
@@ -788,6 +868,11 @@ function doPost(e) {
       body = {};
     }
   }
+
+  // รองรับ Webhook จาก LINE สำหรับดึง Group ID อัตโนมัติเมื่อเชิญบอทเข้ากลุ่ม
+  if (body && body.events && Array.isArray(body.events)) {
+    return handleLineWebhook(body);
+  }
   
   var action = body.action || (e && e.parameter && e.parameter.action) || "";
   var data = body.data || body;
@@ -814,6 +899,9 @@ function doPost(e) {
         var force = (data.forceSend === true || data.forceSend === "true");
         responseData = sendDailyLineNotification(force, data);
         break;
+      case "sendTestMessage":
+        responseData = sendTestLineMessage(data);
+        break;
       case "testLineToken":
         responseData = testLineToken(data.token);
         break;
@@ -832,4 +920,55 @@ function doPost(e) {
   
   return ContentService.createTextOutput(JSON.stringify(responseData))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * จัดการ Webhook จาก LINE สำหรับดึง Group ID อัตโนมัติ
+ */
+function handleLineWebhook(body) {
+  var config = getConfig();
+  var events = body.events;
+  for (var i = 0; i < events.length; i++) {
+    var ev = events[i];
+    var replyToken = ev.replyToken;
+    var source = ev.source || {};
+    var groupId = source.groupId || "";
+    var userId = source.userId || "";
+
+    if (groupId) {
+      // บันทึก Group ID ลงใน Script Properties ทันที
+      PropertiesService.getScriptProperties().setProperty("LINE_DESTINATION_ID", groupId);
+      if (replyToken && config.lineChannelAccessToken) {
+        replyLineSimple(replyToken, config.lineChannelAccessToken, 
+          "🏥 เชื่อมต่อกับระบบ TeleQueue สำเร็จ!\n\n" +
+          "📌 รหัสกลุ่ม (Group ID):\n" + groupId + "\n\n" +
+          "✅ ระบบได้บันทึกรหัสกลุ่มนี้เรียบร้อยแล้ว พร้อมส่งการแจ้งเตือนนัด Telemed ทุกวัน เวลา 08:00 น. ครับ"
+        );
+      }
+    } else if (userId && replyToken && config.lineChannelAccessToken) {
+      replyLineSimple(replyToken, config.lineChannelAccessToken, 
+        "👤 รหัส User ID ของคุณคือ:\n" + userId + "\n\n" +
+        "สามารถนำรหัสนี้ไปใส่ในช่อง Destination ID เพื่อทดสอบรับการแจ้งเตือนส่วนตัวได้ครับ"
+      );
+    }
+  }
+  return ContentService.createTextOutput(JSON.stringify({ status: "ok" }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function replyLineSimple(replyToken, token, text) {
+  try {
+    UrlFetchApp.fetch("https://api.line.me/v2/bot/message/reply", {
+      method: "post",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + sanitizeLineToken(token)
+      },
+      payload: JSON.stringify({
+        replyToken: replyToken,
+        messages: [{ type: "text", text: text }]
+      }),
+      muteHttpExceptions: true
+    });
+  } catch (e) {}
 }

@@ -1007,6 +1007,64 @@ const App = {
         confirmButtonColor: "#ef4444"
       });
     }
+  },
+
+  // ทดสอบส่งข้อความจริงเข้ากลุ่ม LINE
+  sendTestMessageFromSettings: async function() {
+    const token = document.getElementById("settingLineToken").value.trim() || CONFIG.getLineConfig().token;
+    const groupId = document.getElementById("settingLineGroupId").value.trim() || CONFIG.getLineConfig().groupId;
+
+    if (!token || !groupId) {
+      Swal.fire({
+        icon: "warning",
+        title: "กรุณาระบุข้อมูลให้ครบ",
+        text: "ต้องระบุทั้ง Channel Access Token และ Destination ID ก่อนทดสอบส่ง",
+        confirmButtonColor: "#0284c7"
+      });
+      return;
+    }
+
+    // บันทึกลง config ก่อนส่ง
+    CONFIG.setLineConfig(token, groupId);
+
+    Swal.fire({
+      title: "กำลังส่งข้อความทดสอบ...",
+      text: "กำลังส่งข้อความเข้ากลุ่ม LINE ปลายทาง",
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
+    });
+
+    try {
+      const res = await ApiService.sendTestLineMessage();
+      if (res && res.success) {
+        Swal.fire({
+          icon: "success",
+          title: "ส่งข้อความทดสอบสำเร็จ! 🎉",
+          text: "ข้อความทดสอบถูกส่งเข้ากลุ่ม LINE เรียบร้อยแล้ว กรุณาเปิดดูในแอป LINE",
+          confirmButtonColor: "#10b981"
+        });
+      } else {
+        throw new Error(res.message || "ส่งไม่สำเร็จ");
+      }
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "ส่งข้อความทดสอบไม่สำเร็จ",
+        html: `
+          <div class="text-left text-xs space-y-2">
+            <p class="text-rose-600 font-bold">${err.message}</p>
+            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+              <p class="font-bold text-slate-700">คำแนะนำในการตรวจสอบ:</p>
+              <ul class="list-disc pl-4 space-y-1 text-slate-600 mt-1">
+                <li>บอท (LINE Official Account) ได้ถูก<strong>เชิญเข้ากลุ่ม LINE</strong> นั้นแล้วหรือยัง? (ถ้าบอทไม่ได้อยู่ในกลุ่ม จะส่งเข้ากลุ่มไม่ได้)</li>
+                <li>Destination ID ต้องเป็นรหัสที่ขึ้นต้นด้วย <code>C...</code> (สำหรับกลุ่ม) หรือ <code>U...</code> (สำหรับบุคคล) เท่านั้น <em>(ไม่ใช่ชื่อกลุ่ม)</em></li>
+              </ul>
+            </div>
+          </div>
+        `,
+        confirmButtonColor: "#ef4444"
+      });
+    }
   }
 };
 

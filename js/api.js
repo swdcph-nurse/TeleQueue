@@ -167,6 +167,15 @@ const ApiService = {
     });
   },
 
+  // ส่งข้อความทดสอบธรรมดาเข้า LINE
+  sendTestLineMessage: async function() {
+    const lineCfg = CONFIG.getLineConfig();
+    return await this.request("sendTestMessage", {
+      lineChannelAccessToken: lineCfg.token,
+      lineDestinationId: lineCfg.groupId
+    });
+  },
+
   // ทดสอบความถูกต้องของ LINE Channel Access Token
   testLineToken: async function(token) {
     const t = token || CONFIG.getLineConfig().token;
