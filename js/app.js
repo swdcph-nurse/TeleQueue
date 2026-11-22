@@ -210,12 +210,18 @@ const App = {
     this.setSyncStatus("loading", "กำลังซิงค์ข้อมูล...");
 
     try {
-      const list = await ApiService.getAllAppointments();
-      const isConnected = ApiService.hasGasUrl();
-      if (isConnected) {
+      const res = await ApiService.request("getAll");
+      const hasGas = ApiService.hasGasUrl();
+      if (res && res.success && !res.fromCache) {
+        if (Array.isArray(res.data)) DataStore.setAll(res.data);
         this.setSyncStatus("ok", "เชื่อมต่อ Google Sheets แล้ว");
       } else {
-        this.setSyncStatus("local", `ฐานข้อมูลท้องถิ่น (${list.length} รายการ)`);
+        const list = DataStore.getAll();
+        if (!hasGas) {
+          this.setSyncStatus("local", `ฐานข้อมูลท้องถิ่น (${list.length} รายการ)`);
+        } else {
+          this.setSyncStatus("error", `ซิงค์ขัดข้อง (ใช้ข้อมูลแคช ${list.length} รายการ)`);
+        }
       }
       this.renderAllViews();
     } catch (e) {
@@ -753,7 +759,8 @@ const App = {
       lineName,
       notes,
       tele,
-      hosxp
+      hosxp,
+      operator: CONFIG.getCurrentOperator()
     };
 
     Swal.fire({
@@ -944,6 +951,9 @@ const App = {
     const gasInput = document.getElementById("settingGasUrl");
     if (gasInput) gasInput.value = CONFIG.getGasUrl();
 
+    const sheetInput = document.getElementById("settingSheetName");
+    if (sheetInput) sheetInput.value = CONFIG.getSheetName();
+
     const lineCfg = CONFIG.getLineConfig();
     const tokenInput = document.getElementById("settingLineToken");
     if (tokenInput) tokenInput.value = lineCfg.token;
@@ -965,11 +975,13 @@ const App = {
     if (e) e.preventDefault();
 
     const gasUrl = document.getElementById("settingGasUrl").value.trim();
+    const sheetName = document.getElementById("settingSheetName") ? document.getElementById("settingSheetName").value.trim() : "";
     const lineToken = document.getElementById("settingLineToken").value.trim();
     const lineGroupId = document.getElementById("settingLineGroupId").value.trim();
     const opName = document.getElementById("settingDefaultOperator").value.trim();
 
     CONFIG.setGasUrl(gasUrl);
+    CONFIG.setSheetName(sheetName);
     CONFIG.setLineConfig(lineToken, lineGroupId);
     if (opName) CONFIG.setCurrentOperator(opName);
     this.initOperatorDisplay();
@@ -978,6 +990,7 @@ const App = {
     if (gasUrl) {
       try {
         await ApiService.saveSettingsToGas({
+          sheetName: sheetName,
           lineChannelAccessToken: lineToken,
           lineDestinationId: lineGroupId
         });
@@ -1029,14 +1042,44 @@ const App = {
 
     try {
       CONFIG.setGasUrl(url);
+      const sheetInput = document.getElementById("settingSheetName");
+      const sheetName = sheetInput ? sheetInput.value.trim() : "";
+      if (sheetName) {
+        CONFIG.setSheetName(sheetName);
+        try {
+          await ApiService.saveSettingsToGas({ sheetName: sheetName });
+        } catch (e) {}
+      }
       const res = await ApiService.request("getAll");
       if (res && res.success && !res.fromCache) {
-        Swal.fire({
-          icon: "success",
-          title: "เชื่อมต่อ Google Sheets สำเร็จ",
-          text: `ดึงข้อมูลได้สำเร็จ จำนวน ${res.data ? res.data.length : 0} รายการ ระบบพร้อมบันทึกข้อมูลลงชีตแล้ว`,
-          confirmButtonColor: COLOR.success
-        });
+        const count = res.data ? res.data.length : 0;
+        if (count > 0) {
+          Swal.fire({
+            icon: "success",
+            title: "เชื่อมต่อ Google Sheets สำเร็จ",
+            text: `ดึงข้อมูลได้สำเร็จ จำนวน ${count} รายการ ระบบพร้อมบันทึกข้อมูลลงชีตแล้ว`,
+            confirmButtonColor: COLOR.success
+          });
+        } else {
+          Swal.fire({
+            icon: "info",
+            title: "เชื่อมต่อสำเร็จ แต่พบข้อมูล 0 รายการ",
+            html: `
+              <div class="help">
+                <p>เชื่อมต่อ Web App ได้เรียบร้อย แต่แผ่นงานที่ดึงมายังไม่มีข้อมูลนัดหมาย</p>
+                <div class="help-box help-box--warn">
+                  <div class="help-box-title">คำแนะนำ</div>
+                  <ul>
+                    <li>หากเพิ่งเพิ่มแผ่นงานใหม่ (เช่น "Home") ระบบอาจไปอ่านแท็บนั้น</li>
+                    <li>ระบุชื่อแผ่นงานที่มีข้อมูลจริง (เช่น <strong>Sheet1</strong> หรือ <strong>รายการนัด</strong>) ในช่อง "ชื่อแผ่นงานในชีต" แล้วกดทดสอบอีกครั้ง</li>
+                    <li>หรือใน Google Sheets ให้ลากแท็บแผ่นงานที่มีข้อมูลมาไว้เป็นแท็บแรกสุด (ซ้ายสุด)</li>
+                  </ul>
+                </div>
+              </div>
+            `,
+            confirmButtonColor: COLOR.primary
+          });
+        }
       } else {
         throw new Error(res ? res.errorMessage || res.message : "ไม่สามารถเชื่อมต่อได้");
       }

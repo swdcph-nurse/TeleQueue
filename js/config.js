@@ -7,6 +7,9 @@ const CONFIG = {
   SPREADSHEET_ID: "1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE",
   GITHUB_REPO_URL: "https://github.com/swdcph-nurse/TeleQueue",
   
+  // URL เริ่มต้นของ Google Apps Script Web App (ใส่ไว้ตรงนี้เพื่อให้ผู้ใช้คนอื่นที่เปิดเว็บเชื่อมต่อชีตได้ทันที)
+  DEFAULT_GAS_URL: "https://script.google.com/macros/s/AKfycbzcwZZKpFJyML3lH-Zp1LVvXdf6bVGCm4BIUsyTfNxHA0GabAd81a4fGv6V_n2iEyvg/exec",
+  
   // แผนกที่นัดหมายทั้งหมด
   DEPARTMENTS: [
     "อายุรกรรมทั่วไป",
@@ -22,6 +25,7 @@ const CONFIG = {
   // LocalStorage keys
   STORAGE_KEYS: {
     GAS_URL: "TELEQUEUE_GAS_URL",
+    SHEET_NAME: "TELEQUEUE_SHEET_NAME",
     OPERATOR_NAME: "TELEQUEUE_CURRENT_OPERATOR",
     LINE_TOKEN: "TELEQUEUE_LINE_TOKEN",
     LINE_GROUP_ID: "TELEQUEUE_LINE_GROUP_ID",
@@ -31,11 +35,20 @@ const CONFIG = {
 
   // ดึงค่า URL ของ Google Apps Script Web App
   getGasUrl: function() {
-    return localStorage.getItem(this.STORAGE_KEYS.GAS_URL) || "";
+    return localStorage.getItem(this.STORAGE_KEYS.GAS_URL) || this.DEFAULT_GAS_URL || "";
   },
 
   setGasUrl: function(url) {
     localStorage.setItem(this.STORAGE_KEYS.GAS_URL, (url || "").trim());
+  },
+
+  // ชื่อแผ่นงาน (Sheet Tab Name)
+  getSheetName: function() {
+    return localStorage.getItem(this.STORAGE_KEYS.SHEET_NAME) || "";
+  },
+
+  setSheetName: function(name) {
+    localStorage.setItem(this.STORAGE_KEYS.SHEET_NAME, (name || "").trim());
   },
 
   // ผู้ดำเนินการปัจจุบัน (ชื่อพยาบาล / เจ้าหน้าที่)

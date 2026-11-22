@@ -8,6 +8,8 @@
 
 // ค่าเริ่มต้นระบบ (สามารถแก้ไขผ่าน Script Properties หรือหน้าตั้งค่าได้)
 var DEFAULT_SPREADSHEET_ID = "1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE";
+var DEFAULT_SHEET_NAME = ""; // ระบุชื่อแผ่นงานเฉพาะ (เช่น "Sheet1", "รายการนัด") หากเว้นว่างไว้ ระบบจะค้นหาแผ่นงานที่มีข้อมูลนัดให้อัตโนมัติ
+var ADMIN_LINE_ID = "Ucf411d16405ac9fccf7a87848a8208dc"; // LINE UID ของแอดมินสำหรับรับการแจ้งเตือนเมื่อมีนัดใหม่
 var HEADER_ROW_INDEX = 2; // แถวหัวตาราง (วันนัด, ชื่อ-สกุล, ...)
 var DATA_START_ROW = 3;   // แถวเริ่มต้นข้อมูล
 
@@ -16,16 +18,17 @@ function getConfig() {
   var props = PropertiesService.getScriptProperties();
   return {
     spreadsheetId: props.getProperty("SPREADSHEET_ID") || DEFAULT_SPREADSHEET_ID,
-    sheetName: props.getProperty("SHEET_NAME") || "",
+    sheetName: props.getProperty("SHEET_NAME") || DEFAULT_SHEET_NAME,
     lineChannelAccessToken: props.getProperty("LINE_CHANNEL_ACCESS_TOKEN") || "",
-    lineDestinationId: props.getProperty("LINE_DESTINATION_ID") || "", // Group ID หรือ User ID
+    lineDestinationId: props.getProperty("LINE_DESTINATION_ID") || "", // Group ID หรือ User ID สำหรับการแจ้งเตือนประจำวันในกลุ่ม
+    adminLineId: props.getProperty("ADMIN_LINE_ID") || ADMIN_LINE_ID, // LINE UID แอดมินสำหรับเตือนเมื่อมีนัดใหม่
     appUrl: props.getProperty("APP_URL") || "https://swdcph-nurse.github.io/TeleQueue/",
     autoReminderHour: parseInt(props.getProperty("REMINDER_HOUR") || "8", 10) // 8:00 AM
   };
 }
 
 /**
- * ดึง Sheet ทำงาน
+ * ดึง Sheet ทำงาน (พร้อมระบบตรวจจับแผ่นงานข้อมูลนัดหมายอัตโนมัติ ป้องกันปัญหาเมื่อมีแผ่นงาน Home หรืออื่นๆ เพิ่มเข้ามา)
  */
 function getTargetSheet() {
   var config = getConfig();
@@ -36,11 +39,45 @@ function getTargetSheet() {
     ss = SpreadsheetApp.getActiveSpreadsheet();
   }
   
+  // 1. ถ้ามีการระบุ sheetName ให้ใช้แผ่นงานตามชื่อนั้นก่อน
   if (config.sheetName) {
     var s = ss.getSheetByName(config.sheetName);
     if (s) return s;
   }
-  return ss.getSheets()[0];
+  
+  var sheets = ss.getSheets();
+  if (sheets.length === 1) return sheets[0];
+
+  // 2. ค้นหาแผ่นงานที่มีหัวตารางข้อมูลนัดหมาย (มีคำว่า วันนัด, ชื่อ, หรือ HN) โดยข้ามแผ่นงาน Home / สรุป
+  for (var i = 0; i < sheets.length; i++) {
+    var cur = sheets[i];
+    var sName = cur.getName().trim().toLowerCase();
+    if (sName === "home" || sName === "dashboard" || sName === "หน้าแรก" || sName === "สรุป") {
+      continue;
+    }
+    var lastRow = cur.getLastRow();
+    var lastCol = cur.getLastColumn();
+    if (lastRow >= 2 && lastCol >= 2) {
+      try {
+        var hValues = cur.getRange(HEADER_ROW_INDEX, 1, 1, Math.min(lastCol, 10)).getValues()[0];
+        var hStr = hValues.join(" ");
+        if (hStr.indexOf("วัน") !== -1 || hStr.indexOf("ชื่อ") !== -1 || hStr.indexOf("HN") !== -1) {
+          return cur;
+        }
+      } catch (e) {}
+    }
+  }
+
+  // 3. ถ้าไม่พบตามเงื่อนไข ให้ใช้แผ่นงานแรกที่ไม่ใช่ชื่อ Home / Dashboard
+  for (var j = 0; j < sheets.length; j++) {
+    var name = sheets[j].getName().trim().toLowerCase();
+    if (name !== "home" && name !== "dashboard" && name !== "หน้าแรก") {
+      return sheets[j];
+    }
+  }
+
+  // 4. Fallback สุดท้าย: แผ่นงานแรกสุด
+  return sheets[0];
 }
 
 /**
@@ -261,10 +298,19 @@ function addAppointment(data) {
   
   sheet.getRange(nextRow, 1, 1, newRow.length).setValues([newRow]);
   
+  // แจ้งเตือนแอดมินเมื่อมีคิวนัดหมายใหม่ (ส่งไปยัง Admin UID: Ucf411d16405ac9fccf7a87848a8208dc)
+  var adminNotifyRes = null;
+  try {
+    adminNotifyRes = notifyAdminNewAppointment(data);
+  } catch (errAdmin) {
+    Logger.log("ไม่สามารถส่งแจ้งเตือนแอดมิน: " + errAdmin.toString());
+  }
+  
   return {
     success: true,
     message: "บันทึกข้อมูลนัดหมายใหม่ลงแถวที่ " + nextRow + " เรียบร้อยแล้ว",
     rowIndex: nextRow,
+    adminNotified: (adminNotifyRes && adminNotifyRes.success),
     data: newRow
   };
 }
@@ -339,6 +385,245 @@ function deleteAppointment(rowIndex) {
     success: true,
     message: "ลบรายการแถวที่ " + row + " เรียบร้อยแล้ว"
   };
+}
+
+/**
+ * ส่งแจ้งเตือนแอดมินเมื่อมีคิวนัดหมายใหม่ (Admin UID: Ucf411d16405ac9fccf7a87848a8208dc)
+ */
+function notifyAdminNewAppointment(data) {
+  var config = getConfig();
+  var accessToken = sanitizeLineToken(config.lineChannelAccessToken);
+  var adminId = String(config.adminLineId || ADMIN_LINE_ID).trim();
+  
+  if (!accessToken) {
+    Logger.log("แจ้งเตือนแอดมินข้ามไป: ยังไม่ได้ระบุ LINE Access Token");
+    return { success: false, message: "No LINE Access Token configured" };
+  }
+  if (!adminId) {
+    Logger.log("แจ้งเตือนแอดมินข้ามไป: ยังไม่ได้ระบุ Admin LINE ID");
+    return { success: false, message: "No Admin LINE ID configured" };
+  }
+  
+  var rawDate = data.date || new Date();
+  var isoDate = normalizeDate(rawDate);
+  var thaiDate = formatThaiDate(isoDate);
+  var appUrl = config.appUrl || "https://swdcph-nurse.github.io/TeleQueue/";
+  var cleanPhone = data.phone ? String(data.phone).replace(/[^0-9]/g, "") : "";
+  
+  var phoneBox = {
+    type: "box",
+    layout: "baseline",
+    margin: "xs",
+    contents: [
+      { type: "text", text: "เบอร์โทร:", size: "xs", color: "#64748b", flex: 2 }
+    ]
+  };
+
+  if (cleanPhone.length >= 9) {
+    phoneBox.contents.push({
+      type: "text",
+      text: String(data.phone),
+      size: "xs",
+      weight: "bold",
+      color: "#059669",
+      action: {
+        type: "uri",
+        uri: "tel:" + cleanPhone
+      },
+      flex: 4
+    });
+  } else {
+    phoneBox.contents.push({
+      type: "text",
+      text: data.phone ? String(data.phone) : "ไม่มีเบอร์โทร",
+      size: "xs",
+      weight: "bold",
+      color: data.phone ? "#334155" : "#dc2626",
+      flex: 4
+    });
+  }
+
+  var flexMessage = {
+    type: "flex",
+    altText: "🔔 มีการเพิ่มคิวนัด Telemed ใหม่: " + (data.name || "ผู้ป่วย") + " นัดวันที่ " + thaiDate,
+    contents: {
+      type: "bubble",
+      size: "kilo",
+      header: {
+        type: "box",
+        layout: "vertical",
+        backgroundColor: "#0ea5e9",
+        paddingTop: "14px",
+        paddingBottom: "14px",
+        contents: [
+          {
+            type: "text",
+            text: "🏥 ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ",
+            color: "#ffffff",
+            weight: "bold",
+            size: "sm"
+          },
+          {
+            type: "text",
+            text: "✨ มีการเพิ่มคิวนัด TELEMED ใหม่!",
+            color: "#f0fdf4",
+            weight: "bold",
+            size: "xs",
+            margin: "xs"
+          },
+          {
+            type: "text",
+            text: "🗓 วันนัด: " + thaiDate,
+            color: "#fef08a",
+            weight: "bold",
+            size: "xs",
+            margin: "xs"
+          }
+        ]
+      },
+      body: {
+        type: "box",
+        layout: "vertical",
+        spacing: "sm",
+        contents: [
+          {
+            type: "box",
+            layout: "vertical",
+            paddingAll: "10px",
+            backgroundColor: "#f8fafc",
+            cornerRadius: "8px",
+            borderColor: "#e2e8f0",
+            borderWidth: "1px",
+            contents: [
+              {
+                type: "box",
+                layout: "horizontal",
+                contents: [
+                  {
+                    type: "text",
+                    text: data.name || "ไม่ระบุชื่อ",
+                    weight: "bold",
+                    size: "sm",
+                    color: "#0f172a",
+                    flex: 4
+                  },
+                  {
+                    type: "text",
+                    text: data.department ? "[" + data.department + "]" : "",
+                    size: "xs",
+                    color: "#0284c7",
+                    align: "end",
+                    weight: "bold",
+                    flex: 2
+                  }
+                ]
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                margin: "xs",
+                contents: [
+                  { type: "text", text: "HN:", size: "xs", color: "#64748b", flex: 2 },
+                  { type: "text", text: data.hn || "-", size: "xs", weight: "bold", color: "#0f172a", flex: 4 }
+                ]
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                margin: "xs",
+                contents: [
+                  { type: "text", text: "เลข ปชช:", size: "xs", color: "#64748b", flex: 2 },
+                  { type: "text", text: data.cid || "-", size: "xs", color: "#334155", flex: 4 }
+                ]
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                margin: "xs",
+                contents: [
+                  { type: "text", text: "แพทย์:", size: "xs", color: "#64748b", flex: 2 },
+                  { type: "text", text: data.doctor || "-", size: "xs", color: "#334155", flex: 4 }
+                ]
+              },
+              phoneBox,
+              {
+                type: "box",
+                layout: "baseline",
+                margin: "xs",
+                contents: [
+                  { type: "text", text: "Line:", size: "xs", color: "#64748b", flex: 2 },
+                  { type: "text", text: data.lineName || "-", size: "xs", color: "#475569", flex: 4 }
+                ]
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                margin: "xs",
+                contents: [
+                  { type: "text", text: "นัดเพื่อ:", size: "xs", color: "#64748b", flex: 2 },
+                  { type: "text", text: data.notes || "ติดตามอาการ", size: "xs", color: "#475569", wrap: true, flex: 4 }
+                ]
+              },
+              {
+                type: "box",
+                layout: "baseline",
+                margin: "xs",
+                contents: [
+                  { type: "text", text: "ผู้บันทึก:", size: "xs", color: "#64748b", flex: 2 },
+                  { type: "text", text: data.operator || "เจ้าหน้าที่", size: "xs", color: "#0284c7", weight: "bold", flex: 4 }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      footer: {
+        type: "box",
+        layout: "vertical",
+        contents: [
+          {
+            type: "button",
+            style: "primary",
+            color: "#0284c7",
+            height: "sm",
+            action: {
+              type: "uri",
+              label: "📋 เปิดดูใน TeleQueue",
+              uri: appUrl
+            }
+          }
+        ]
+      }
+    }
+  };
+
+  var url = "https://api.line.me/v2/bot/message/push";
+  var payload = {
+    to: adminId,
+    messages: [flexMessage]
+  };
+
+  var options = {
+    method: "post",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": "Bearer " + accessToken
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+
+  var res = UrlFetchApp.fetch(url, options);
+  var code = res.getResponseCode();
+  var body = res.getContentText();
+  
+  if (code === 200) {
+    Logger.log("✅ ส่งแจ้งเตือนคิวใหม่ไปยังแอดมินเรียบร้อย (" + adminId + ")");
+    return { success: true };
+  } else {
+    Logger.log("⚠️ ส่งแจ้งเตือนแอดมินไม่สำเร็จ (" + code + "): " + body);
+    return { success: false, message: body };
+  }
 }
 
 /**
@@ -849,6 +1134,7 @@ function saveSettings(settings) {
   if (settings.sheetName !== undefined) props.setProperty("SHEET_NAME", settings.sheetName.trim());
   if (settings.lineChannelAccessToken) props.setProperty("LINE_CHANNEL_ACCESS_TOKEN", settings.lineChannelAccessToken.trim());
   if (settings.lineDestinationId) props.setProperty("LINE_DESTINATION_ID", settings.lineDestinationId.trim());
+  if (settings.adminLineId !== undefined) props.setProperty("ADMIN_LINE_ID", settings.adminLineId.trim());
   if (settings.appUrl) props.setProperty("APP_URL", settings.appUrl.trim());
   if (settings.reminderHour !== undefined) props.setProperty("REMINDER_HOUR", String(settings.reminderHour));
   
@@ -942,6 +1228,9 @@ function doPost(e) {
         break;
       case "setupDailyTrigger":
         responseData = setDailyTriggerAt0800();
+        break;
+      case "testAdminNotification":
+        responseData = notifyAdminNewAppointment(data);
         break;
       case "saveSettings":
         responseData = saveSettings(data);
