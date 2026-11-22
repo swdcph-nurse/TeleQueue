@@ -57,7 +57,34 @@ const UI = {
     }
   },
 
+  // เติมรายการแผนกมาตรฐาน (CONFIG.DEPARTMENTS) ลงใน select ทุกจุด
+  fillDepartmentSelects: function() {
+    const deps = (window.CONFIG && Array.isArray(CONFIG.DEPARTMENTS)) ? CONFIG.DEPARTMENTS : [];
+    const opts = deps.map(d => `<option value="${esc(d)}">${esc(d)}</option>`).join("");
+    const all = `<option value="ALL">ทุกแผนก</option>`;
+
+    ["calendarDeptSelect", "manageDeptFilter"].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = all + opts;
+    });
+    const form = document.getElementById("formDept");
+    if (form) form.innerHTML = opts;
+  },
+
+  // ให้ select มีค่านี้เสมอ (กรณีข้อมูลเก่าเป็นชื่อแผนกนอกรายการมาตรฐาน)
+  setSelectValue: function(el, value) {
+    if (!el) return;
+    if (value && ![...el.options].some(o => o.value === value)) {
+      const o = document.createElement("option");
+      o.value = value; o.textContent = value;
+      el.appendChild(o);
+    }
+    el.value = value || (el.options[0] ? el.options[0].value : "");
+  },
+
   init: function() {
+    this.fillDepartmentSelects();
+
     // คลิกพื้นหลังเพื่อปิด
     document.querySelectorAll(".modal").forEach(modal => {
       modal.addEventListener("mousedown", (e) => {

@@ -319,9 +319,6 @@
                 <label class="sr-only" for="calendarDeptSelect">กรองตามแผนก</label>
                 <select id="calendarDeptSelect" class="select select--compact" style="width:auto" onchange="CalendarModule.filterDepartment(this.value)">
                   <option value="ALL">ทุกแผนก</option>
-                  <option value="MED">MED (อายุรกรรม)</option>
-                  <option value="SX">SX (ศัลยกรรม)</option>
-                  <option value="PED">PED (กุมารเวชกรรม)</option>
                 </select>
                 <label class="sr-only" for="calendarStatusSelect">กรองตามสถานะ</label>
                 <select id="calendarStatusSelect" class="select select--compact" style="width:auto" onchange="CalendarModule.filterStatus(this.value)">
@@ -359,9 +356,6 @@
                 <label class="sr-only" for="manageDeptFilter">กรองตามแผนก</label>
                 <select id="manageDeptFilter" class="select select--compact" style="width:auto">
                   <option value="ALL">ทุกแผนก</option>
-                  <option value="MED">MED</option>
-                  <option value="SX">SX</option>
-                  <option value="PED">PED</option>
                 </select>
                 <label class="sr-only" for="manageStatusFilter">กรองตามสถานะ</label>
                 <select id="manageStatusFilter" class="select select--compact" style="width:auto">
@@ -441,11 +435,6 @@
             <div class="field">
               <label class="label" for="formDept">แผนก <span class="req">*</span></label>
               <select id="formDept" class="select" required>
-                <option value="MED">MED (อายุรกรรม)</option>
-                <option value="Sx">Sx (ศัลยกรรม)</option>
-                <option value="Ped">Ped (กุมารเวชกรรม)</option>
-                <option value="Ortho">Ortho (กระดูกและข้อ)</option>
-                <option value="OB-GYN">OB-GYN (สูติ-นรีเวช)</option>
               </select>
             </div>
 
@@ -505,7 +494,6 @@
       </form>
     </div>
   </div>
-</div>
 
   <!-- ========================================================================= -->
   <!-- MODAL: Patient Detail View                                                -->
@@ -524,7 +512,6 @@
       <div class="dialog-foot" id="patientDetailFoot"><!-- Rendered by JS --></div>
     </div>
   </div>
-</div>
 
   <!-- ========================================================================= -->
   <!-- MODAL: LINE Notification Center                                           -->
@@ -583,7 +570,6 @@
       </div>
     </div>
   </div>
-</div>
 
   <!-- ========================================================================= -->
   <!-- MODAL: System Settings                                                    -->
