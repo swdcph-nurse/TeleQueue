@@ -573,6 +573,13 @@ const App = {
       return true;
     });
 
+    // เรียงตามวันนัด: ล่าสุดอยู่บนสุด (วันเดียวกันให้แถวที่เพิ่มล่าสุดขึ้นก่อน)
+    filtered.sort((x, y) => {
+      const byDate = String(y.date || "").localeCompare(String(x.date || ""));
+      if (byDate !== 0) return byDate;
+      return (Number(y.rowIndex) || 0) - (Number(x.rowIndex) || 0);
+    });
+
     const countEl = document.getElementById("manageTableCount");
     if (countEl) countEl.textContent = `พบ ${filtered.length} รายการ (จากทั้งหมด ${appointments.length} รายการ)`;
 
