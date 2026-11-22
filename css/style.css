@@ -447,6 +447,12 @@ code { font-family: var(--mono); font-size: 0.92em; background: var(--surface-va
 .row--done { background: rgba(20, 108, 46, 0.04); }
 .table tbody tr.empty-row:hover { background: transparent; }
 
+/* แถวที่คลิกเพื่อดูรายละเอียดได้ */
+.table tbody tr.row-link { cursor: pointer; }
+.table tbody tr.row-link:hover { background: var(--primary-container); background: color-mix(in srgb, var(--primary-container) 40%, transparent); }
+.table tbody tr.row-link:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.table tbody tr.row-link .check-cell, .table tbody tr.row-link .cell-actions { cursor: default; }
+
 .cell-name { font: 600 14px/1.4 var(--font); }
 .cell-sub { font-size: 12px; color: var(--on-surface-var); margin-top: 2px; }
 .cell-sub strong { color: var(--on-surface); }
@@ -758,7 +764,8 @@ code { font-family: var(--mono); font-size: 0.92em; background: var(--surface-va
     padding: 14px; border: 1px solid var(--outline-var); border-radius: var(--r-md);
     background: var(--surface);
   }
-  .table tbody tr:hover { background: var(--surface); }
+  .table tbody tr:hover, .table tbody tr.row-link:hover { background: var(--surface); }
+  .table tbody tr.row-link:active { background: var(--surface-low); }
   .table tbody tr.row--done { background: #f3faf5; border-color: #bfe3c9; }
   .table td { display: block; padding: 0; border: 0; min-width: 0; }
   .table td[data-label]::before {

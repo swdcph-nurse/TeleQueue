@@ -120,6 +120,24 @@ const App = {
       });
     }
 
+    // คลิกที่แถวในตารางเพื่อเปิดรายละเอียด (ไม่รบกวนปุ่ม ลิงก์ และช่องติ๊กในแถว)
+    ["todayQueueTableBody", "manageTableBody"].forEach(id => {
+      const tbody = document.getElementById(id);
+      if (!tbody) return;
+      const open = (e) => {
+        if (e.target.closest("a, button, input, label, select, textarea")) return;
+        const row = e.target.closest("tr[data-id]");
+        if (row) self.openPatientDetailModalById(row.getAttribute("data-id"));
+      };
+      tbody.addEventListener("click", open);
+      tbody.addEventListener("keydown", (e) => {
+        if ((e.key === "Enter" || e.key === " ") && e.target.matches("tr[data-id]")) {
+          e.preventDefault();
+          open(e);
+        }
+      });
+    });
+
     // วันที่ในหน้าคิวนัดวันนี้
     const queueDateInput = document.getElementById("queueDateInput");
     if (queueDateInput) {
@@ -408,7 +426,7 @@ const App = {
         : `<span class="cell-muted">ไม่มีเบอร์โทร</span>`;
 
       return `
-        <tr class="${isComplete ? "row--done" : ""}">
+        <tr class="row-link ${isComplete ? "row--done" : ""}" data-id="${id}" tabindex="0" title="คลิกเพื่อดูรายละเอียด">
           <td class="cell-index">${idx + 1}</td>
           <td class="cell-patient">
             <div class="cell-name">${esc(a.name)}</div>
@@ -447,7 +465,6 @@ const App = {
           </td>
           <td class="cell-actions no-print">
             <div class="actions">
-              <button type="button" onclick="App.openPatientDetailModalById('${id}')" class="icon-btn icon-btn--primary" title="ดูข้อมูล" aria-label="ดูข้อมูล ${esc(a.name)}">${icon("eye")}</button>
               <button type="button" onclick="App.openEditAppointmentModal('${id}')" class="icon-btn icon-btn--primary" title="แก้ไข" aria-label="แก้ไข ${esc(a.name)}">${icon("edit")}</button>
             </div>
           </td>
@@ -614,7 +631,7 @@ const App = {
       const id = jsId(a.id);
 
       return `
-        <tr>
+        <tr class="row-link" data-id="${id}" tabindex="0" title="คลิกเพื่อดูรายละเอียด">
           <td class="cell-index">${idx + 1}</td>
           <td class="cell-date" data-label="วันนัด" style="white-space:nowrap">
             <div class="cell-name">${esc(a.thaiDate)}</div>
@@ -636,7 +653,6 @@ const App = {
           <td class="center cell-status" data-label="สถานะ" style="white-space:nowrap">${statusBadge}</td>
           <td class="cell-actions">
             <div class="actions">
-              <button type="button" onclick="App.openPatientDetailModalById('${id}')" class="icon-btn icon-btn--primary" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${esc(a.name)}">${icon("eye")}</button>
               <button type="button" onclick="App.openEditAppointmentModal('${id}')" class="icon-btn icon-btn--primary" title="แก้ไข" aria-label="แก้ไข ${esc(a.name)}">${icon("edit")}</button>
               <button type="button" onclick="App.confirmDeleteAppointment('${id}')" class="icon-btn icon-btn--danger" title="ลบ" aria-label="ลบ ${esc(a.name)}">${icon("trash")}</button>
             </div>
