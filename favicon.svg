@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="TeleQueue">
+  <defs>
+    <linearGradient id="g" x1="64" y1="32" x2="448" y2="480" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0A74C9"/>
+      <stop offset="1" stop-color="#00897B"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#g)"/>
+  <path fill="#fff" d="M176 128H336A48 48 0 0 1 384 176V272A48 48 0 0 1 336 320H240L176 384V320A48 48 0 0 1 128 272V176A48 48 0 0 1 176 128Z"/>
+  <rect x="212" y="208" width="88" height="32" rx="10" fill="#00796B"/>
+  <rect x="240" y="180" width="32" height="88" rx="10" fill="#00796B"/>
+</svg>

@@ -2,498 +2,504 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>TeleQueue - ระบบบันทึกนัด Telemed ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ</title>
-  
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  
-  <!-- FullCalendar v6 CDN -->
+  <meta name="description" content="ระบบบันทึกนัด Telemed และแจ้งเตือน LINE ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ">
+  <meta name="theme-color" content="#0061A4">
+  <meta name="color-scheme" content="light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="TeleQueue">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+
+  <!-- Favicon & app icons -->
+  <link rel="icon" href="favicon.ico" sizes="any">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="manifest" href="site.webmanifest">
+
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap">
+
+  <!-- FullCalendar v6 -->
   <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
-  
-  <!-- SweetAlert2 CDN -->
+
+  <!-- SweetAlert2 -->
   <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  
-  <!-- Custom CSS -->
+
+  <!-- Styles -->
   <link rel="stylesheet" href="css/style.css">
-  
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            primary: {
-              50: '#f0f9ff',
-              100: '#e0f2fe',
-              200: '#bae6fd',
-              500: '#0ea5e9',
-              600: '#0284c7',
-              700: '#0369a1',
-              800: '#075985'
-            }
-          }
-        }
-      }
-    }
-  </script>
 </head>
-<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col font-sans">
+<body>
 
   <!-- ========================================================================= -->
-  <!-- Top Navigation Header                                                     -->
+  <!-- Icon sprite (SVG) - ใช้แทนอิโมจิทั้งหมด                                    -->
   <!-- ========================================================================= -->
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-xs">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-      <div class="flex items-center justify-between h-16">
-        
-        <!-- Hospital Ward Logo / Title -->
-        <div class="flex items-center gap-3">
-          <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xl shadow-sm">
-            🏥
-          </div>
-          <div>
-            <div class="flex items-center gap-2">
-              <h1 class="text-base sm:text-lg font-bold text-slate-900 leading-tight">TeleQueue</h1>
-              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 text-sky-800 border border-sky-200">
-                ตึกพิเศษปาริฉัตร - หอสงฆ์อาพาธ
-              </span>
-            </div>
-            <p class="text-xs text-slate-500 hidden sm:block">ระบบบันทึกนัด Telemed & แจ้งเตือน LINE อัตโนมัติ</p>
-          </div>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-dashboard" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></symbol>
+      <symbol id="i-queue" viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></symbol>
+      <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2.5"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+      <symbol id="i-list" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></symbol>
+      <symbol id="i-bell" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+      <symbol id="i-user" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></symbol>
+      <symbol id="i-users" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></symbol>
+      <symbol id="i-phone" viewBox="0 0 24 24"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></symbol>
+      <symbol id="i-monitor" viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></symbol>
+      <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></symbol>
+      <symbol id="i-check-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></symbol>
+      <symbol id="i-x-circle" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/></symbol>
+      <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></symbol>
+      <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-printer" viewBox="0 0 24 24"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></symbol>
+      <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></symbol>
+      <symbol id="i-external" viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6M10 14L21 3"/></symbol>
+      <symbol id="i-activity" viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></symbol>
+      <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+      <symbol id="i-shield" viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></symbol>
+      <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></symbol>
+      <symbol id="i-key" viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M21 2l-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/></symbol>
+      <symbol id="i-message" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></symbol>
+      <symbol id="i-note" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></symbol>
+      <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+      <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></symbol>
+      <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></symbol>
+      <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+      <symbol id="i-save" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></symbol>
+      <symbol id="i-video" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></symbol>
+      <symbol id="i-database" viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></symbol>
+      <symbol id="i-stethoscope" viewBox="0 0 24 24"><path d="M4.8 2.3A.3.3 0 1 0 5 2H4a2 2 0 0 0-2 2v5a6 6 0 0 0 6 6 6 6 0 0 0 6-6V4a2 2 0 0 0-2-2h-1a.2.2 0 1 0 .3.3"/><path d="M8 15v1a6 6 0 0 0 6 6 6 6 0 0 0 6-6v-4"/><circle cx="20" cy="10" r="2"/></symbol>
+      <symbol id="i-calendar-empty" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2.5"/><path d="M16 2v4M8 2v4M3 10h18M9 15h6"/></symbol>
+      <symbol id="i-hourglass" viewBox="0 0 24 24"><path d="M5 22h14M5 2h14"/><path d="M17 22v-4.17a2 2 0 0 0-.59-1.42L12 12l-4.41 4.41A2 2 0 0 0 7 17.83V22M7 2v4.17a2 2 0 0 0 .59 1.42L12 12l4.41-4.41A2 2 0 0 0 17 6.17V2"/></symbol>
+    </defs>
+  </svg>
+
+  <a class="skip-link" href="#main">ข้ามไปยังเนื้อหาหลัก</a>
+
+  <div class="app">
+
+    <!-- ===================================================================== -->
+    <!-- Top app bar                                                           -->
+    <!-- ===================================================================== -->
+    <header class="app-bar">
+      <div class="brand">
+        <img class="brand-logo" src="favicon.svg" width="36" height="36" alt="">
+        <div class="brand-text">
+          <h1 class="brand-title">TeleQueue</h1>
+          <p class="brand-sub">ตึกพิเศษปาริฉัตร - หอสงฆ์อาพาธ</p>
         </div>
-
-        <!-- Right Side: Operator & Action Buttons -->
-        <div class="flex items-center gap-2 sm:gap-3">
-          
-          <!-- Sync Status Badge -->
-          <div id="syncStatusIndicator" class="hidden md:flex items-center text-xs font-medium text-slate-500 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
-            <span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5"></span> กำลังเชื่อมต่อ...
-          </div>
-
-          <!-- Operator Button -->
-          <button onclick="App.promptChangeOperator()" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-xl border border-slate-200 transition-colors" title="คลิกเพื่อเปลี่ยนชื่อผู้ปฏิบัติงาน">
-            <span>👤</span>
-            <span id="currentOperatorName" class="max-w-[120px] truncate">พยาบาลเวร</span>
-            <span class="text-[10px] text-slate-400">▼</span>
-          </button>
-
-          <!-- LINE Notification Trigger Button -->
-          <button onclick="LineNotificationModule.openPreviewModal()" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl shadow-sm transition-all">
-            <span>🔔</span>
-            <span class="hidden sm:inline">แจ้งเตือน LINE</span>
-          </button>
-
-          <!-- Add Appointment Button -->
-          <button onclick="App.openAddAppointmentModal()" class="flex items-center gap-1.5 px-3.5 py-1.5 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all">
-            <span>➕</span>
-            <span class="hidden sm:inline">เพิ่มนัดหมาย</span>
-          </button>
-
-          <!-- Settings Button -->
-          <button onclick="App.openSettingsModal()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl border border-transparent hover:border-slate-200 transition-colors" title="ตั้งค่าระบบ">
-            ⚙️
-          </button>
-        </div>
-
       </div>
+
+      <div class="app-bar-actions">
+        <div id="syncStatusIndicator" class="sync" data-state="loading" role="status" aria-live="polite">
+          <span class="dot"></span><span class="sync-text">กำลังเชื่อมต่อ...</span>
+        </div>
+
+        <button type="button" class="chip chip--collapse" onclick="App.promptChangeOperator()" title="คลิกเพื่อเปลี่ยนชื่อผู้ปฏิบัติงาน" aria-label="เปลี่ยนชื่อผู้ปฏิบัติงาน">
+          <svg class="icon" aria-hidden="true"><use href="#i-user"></use></svg>
+          <span id="currentOperatorName" class="chip-name truncate">พยาบาลเวร</span>
+        </button>
+
+        <button type="button" class="btn btn--tonal btn--collapse" onclick="LineNotificationModule.openPreviewModal()" title="แจ้งเตือน LINE" aria-label="แจ้งเตือน LINE">
+          <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+          <span class="btn-label">แจ้งเตือน LINE</span>
+        </button>
+
+        <button type="button" class="btn btn--filled hide-mobile" onclick="App.openAddAppointmentModal()">
+          <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+          <span>เพิ่มนัดหมาย</span>
+        </button>
+
+        <button type="button" class="icon-btn" onclick="App.openSettingsModal()" title="ตั้งค่าระบบ" aria-label="ตั้งค่าระบบ">
+          <svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="app-body">
+
+      <!-- =================================================================== -->
+      <!-- Navigation (rail on desktop / bottom bar on mobile)                 -->
+      <!-- =================================================================== -->
+      <nav class="nav" aria-label="เมนูหลัก">
+        <button type="button" class="nav-item is-active" data-tab="dashboard" aria-current="page">
+          <span class="nav-pill"><svg class="icon" aria-hidden="true"><use href="#i-dashboard"></use></svg></span>
+          <span>ภาพรวม</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="today">
+          <span class="nav-pill"><svg class="icon" aria-hidden="true"><use href="#i-queue"></use></svg></span>
+          <span>คิววันนี้</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="calendar">
+          <span class="nav-pill"><svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg></span>
+          <span>ปฏิทิน</span>
+        </button>
+        <button type="button" class="nav-item" data-tab="manage">
+          <span class="nav-pill"><svg class="icon" aria-hidden="true"><use href="#i-list"></use></svg></span>
+          <span>จัดการนัด</span>
+        </button>
+      </nav>
+
+      <!-- =================================================================== -->
+      <!-- Main content                                                        -->
+      <!-- =================================================================== -->
+      <main class="content" id="main">
+
+        <!-- TAB 1: DASHBOARD -->
+        <section id="tab-dashboard" class="page animate-in" aria-labelledby="dashboardTitle">
+          <div class="page-head">
+            <div>
+              <h2 class="page-title" id="dashboardTitle">ภาพรวม</h2>
+              <p class="page-sub" id="dashboardDate">ระบบบันทึกนัด Telemed และแจ้งเตือน LINE อัตโนมัติ</p>
+            </div>
+          </div>
+
+          <div class="stack">
+
+            <div class="stat-grid">
+              <article class="card stat stat--primary">
+                <div class="stat-top">
+                  <span class="stat-label">นัดวันนี้</span>
+                  <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-calendar"></use></svg></span>
+                </div>
+                <div id="statTodayCount" class="stat-value">0</div>
+                <div class="stat-sub">ประจำวันที่เปิดระบบ</div>
+              </article>
+
+              <article class="card stat">
+                <div class="stat-top">
+                  <span class="stat-label">นัดทั้งหมดในระบบ</span>
+                  <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-users"></use></svg></span>
+                </div>
+                <div id="statTotalCount" class="stat-value">0</div>
+                <div class="stat-sub">รวมทุกเดือนในชีต</div>
+              </article>
+
+              <article class="card stat stat--error">
+                <div class="stat-top">
+                  <span class="stat-label">ยังไม่ได้โทรวันนี้</span>
+                  <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-phone"></use></svg></span>
+                </div>
+                <div id="statPendingCall" class="stat-value">0</div>
+                <div id="statPendingCallSub" class="stat-sub">ค้างโทรทั้งหมด 0 ราย</div>
+              </article>
+
+              <article class="card stat stat--success">
+                <div class="stat-top">
+                  <span class="stat-label">โทร และลง HosXP แล้ววันนี้</span>
+                  <span class="stat-icon"><svg class="icon" aria-hidden="true"><use href="#i-check-circle"></use></svg></span>
+                </div>
+                <div id="statCompleted" class="stat-value">0</div>
+                <div id="statCompletedSub" class="stat-sub">เสร็จสมบูรณ์รวม 0 ราย</div>
+              </article>
+            </div>
+
+            <div id="incompleteAlertsContainer"><!-- Rendered by JS --></div>
+
+            <div class="dash-grid">
+              <section class="card card-pad" aria-labelledby="deptTitle">
+                <div class="card-head">
+                  <h3 class="card-title" id="deptTitle">
+                    <svg class="icon" aria-hidden="true"><use href="#i-activity"></use></svg>
+                    <span>จำนวนนัดหมายแยกตามแผนก</span>
+                  </h3>
+                  <span class="card-meta">ภาพรวมทั้งหมด</span>
+                </div>
+                <div id="deptStatsContainer" class="dept-list"><!-- Rendered by JS --></div>
+              </section>
+
+              <section class="card card-pad stack" aria-labelledby="quickTitle">
+                <h3 class="card-title" id="quickTitle">
+                  <svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>
+                  <span>การดำเนินการด่วน</span>
+                </h3>
+
+                <div class="tile tile--line">
+                  <div class="tile-head">
+                    <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+                    <span>แจ้งเตือนเข้ากลุ่ม LINE</span>
+                  </div>
+                  <p>ส่งรายชื่อผู้ป่วยที่ต้องโทรวันนี้เข้ากลุ่ม LINE ด้วย Messaging API</p>
+                  <button type="button" class="btn btn--success btn--block" onclick="LineNotificationModule.openPreviewModal()">
+                    เปิดหน้าต่างแจ้งเตือน LINE
+                  </button>
+                </div>
+
+                <div class="tile">
+                  <div class="tile-link">
+                    <span class="tile-head" style="font-size:13px">
+                      <svg class="icon" aria-hidden="true"><use href="#i-database"></use></svg>
+                      <span>Google Sheets</span>
+                    </span>
+                    <a href="https://docs.google.com/spreadsheets/d/1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE/edit?gid=0#gid=0" target="_blank" rel="noopener">
+                      เปิดสเปรดชีต
+                      <svg class="icon icon--sm" aria-hidden="true"><use href="#i-external"></use></svg>
+                    </a>
+                  </div>
+                  <p class="tile-id">1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE</p>
+                </div>
+              </section>
+            </div>
+
+          </div>
+        </section>
+
+        <!-- TAB 2: TODAY'S QUEUE -->
+        <section id="tab-today" class="page hidden" aria-labelledby="queueDateHeaderTitle">
+          <div class="page-head">
+            <div>
+              <h2 class="page-title" id="queueDateHeaderTitle">รายการนัดประจำวัน</h2>
+              <p class="page-sub">ติ๊กเครื่องหมายเพื่อบันทึกการโทรและการลง HosXP ทันที</p>
+            </div>
+            <div class="toolbar-group no-print">
+              <button type="button" class="icon-btn" onclick="App.shiftQueueDate(-1)" title="วันก่อนหน้า" aria-label="วันก่อนหน้า">
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"></use></svg>
+              </button>
+              <label class="sr-only" for="queueDateInput">เลือกวันที่</label>
+              <input type="date" id="queueDateInput" class="input input--compact" style="width:auto">
+              <button type="button" class="icon-btn" onclick="App.shiftQueueDate(1)" title="วันถัดไป" aria-label="วันถัดไป">
+                <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+              </button>
+              <button type="button" class="btn btn--tonal btn--sm" onclick="App.shiftQueueDate(0)">วันนี้</button>
+              <button type="button" class="btn btn--outlined btn--sm" onclick="window.print()" title="พิมพ์หน้ารายการ">
+                <svg class="icon" aria-hidden="true"><use href="#i-printer"></use></svg>
+                <span>พิมพ์</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="card" style="overflow:hidden">
+            <div class="table-wrap">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th class="center w-index">ลำดับ</th>
+                    <th>ผู้ป่วย / HN</th>
+                    <th>แผนก / แพทย์</th>
+                    <th>การติดต่อ และหมายเหตุ</th>
+                    <th class="center">โทรนัด (TELE)</th>
+                    <th class="center">บันทึก HosXP</th>
+                    <th class="right no-print">จัดการ</th>
+                  </tr>
+                </thead>
+                <tbody id="todayQueueTableBody"><!-- Rendered by JS --></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: CALENDAR -->
+        <section id="tab-calendar" class="page hidden" aria-labelledby="calendarTitle">
+          <div class="page-head">
+            <div>
+              <h2 class="page-title" id="calendarTitle">ปฏิทินนัดหมาย</h2>
+              <p class="page-sub">คลิกที่วันที่เพื่อดูคิวของวันนั้น คลิกที่นัดเพื่อดูรายละเอียด</p>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="card toolbar">
+              <div class="legend" aria-label="คำอธิบายสี">
+                <span class="legend-item"><span class="legend-dot legend-dot--done"></span>โทรแล้ว และลง HosXP แล้ว</span>
+                <span class="legend-item"><span class="legend-dot legend-dot--partial"></span>ดำเนินการบางส่วน</span>
+                <span class="legend-item"><span class="legend-dot legend-dot--pending"></span>ยังไม่ได้ดำเนินการ</span>
+              </div>
+              <div class="toolbar-group">
+                <label class="sr-only" for="calendarDeptSelect">กรองตามแผนก</label>
+                <select id="calendarDeptSelect" class="select select--compact" style="width:auto" onchange="CalendarModule.filterDepartment(this.value)">
+                  <option value="ALL">ทุกแผนก</option>
+                  <option value="MED">MED (อายุรกรรม)</option>
+                  <option value="SX">SX (ศัลยกรรม)</option>
+                  <option value="PED">PED (กุมารเวชกรรม)</option>
+                </select>
+                <label class="sr-only" for="calendarStatusSelect">กรองตามสถานะ</label>
+                <select id="calendarStatusSelect" class="select select--compact" style="width:auto" onchange="CalendarModule.filterStatus(this.value)">
+                  <option value="ALL">ทุกสถานะ</option>
+                  <option value="COMPLETED">ดำเนินการครบแล้ว</option>
+                  <option value="NO_CALL">ยังไม่ได้โทร</option>
+                  <option value="PARTIAL">ดำเนินการบางส่วน</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="card card-pad">
+              <div id="calendarContainer"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: MANAGE APPOINTMENTS -->
+        <section id="tab-manage" class="page hidden" aria-labelledby="manageTitle">
+          <div class="page-head">
+            <div>
+              <h2 class="page-title" id="manageTitle">จัดการนัดหมายทั้งหมด</h2>
+              <p class="page-sub">ค้นหา แก้ไข และลบนัดหมายที่บันทึกไว้ในระบบ</p>
+            </div>
+          </div>
+
+          <div class="stack">
+            <div class="card toolbar">
+              <div class="search">
+                <svg class="icon" aria-hidden="true"><use href="#i-search"></use></svg>
+                <label class="sr-only" for="globalSearchInput">ค้นหานัดหมาย</label>
+                <input type="search" id="globalSearchInput" class="input" placeholder="ค้นหาชื่อ, HN, เลขบัตร, เบอร์โทร, แพทย์ หรือหมายเหตุ" autocomplete="off">
+              </div>
+              <div class="toolbar-group">
+                <label class="sr-only" for="manageDeptFilter">กรองตามแผนก</label>
+                <select id="manageDeptFilter" class="select select--compact" style="width:auto">
+                  <option value="ALL">ทุกแผนก</option>
+                  <option value="MED">MED</option>
+                  <option value="SX">SX</option>
+                  <option value="PED">PED</option>
+                </select>
+                <label class="sr-only" for="manageStatusFilter">กรองตามสถานะ</label>
+                <select id="manageStatusFilter" class="select select--compact" style="width:auto">
+                  <option value="ALL">ทุกสถานะ</option>
+                  <option value="COMPLETED">ครบถ้วน (โทร + Hos)</option>
+                  <option value="NO_CALL">ยังไม่โทร</option>
+                  <option value="PARTIAL">บางส่วน</option>
+                </select>
+                <button type="button" class="btn btn--filled hide-mobile" onclick="App.openAddAppointmentModal()">
+                  <svg class="icon" aria-hidden="true"><use href="#i-plus"></use></svg>
+                  <span>เพิ่มนัด</span>
+                </button>
+              </div>
+            </div>
+
+            <div class="card" style="overflow:hidden">
+              <div class="table-foot">
+                <span id="manageTableCount">กำลังโหลดรายการ...</span>
+                <button type="button" class="btn btn--text btn--sm" onclick="App.syncWithGoogleSheets()">
+                  <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
+                  <span>รีเฟรช</span>
+                </button>
+              </div>
+              <div class="table-wrap">
+                <table class="table">
+                  <thead>
+                    <tr>
+                      <th class="center w-index">ลำดับ</th>
+                      <th>วันนัด</th>
+                      <th>ผู้ป่วย / HN</th>
+                      <th>แผนก / แพทย์</th>
+                      <th>เบอร์โทร / LINE</th>
+                      <th>หมายเหตุ</th>
+                      <th class="center">สถานะ</th>
+                      <th class="right">จัดการ</th>
+                    </tr>
+                  </thead>
+                  <tbody id="manageTableBody"><!-- Rendered by JS --></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </main>
     </div>
 
-    <!-- Navigation Tabs Bar -->
-    <div class="bg-slate-100/80 border-t border-slate-200 px-4 sm:px-6 lg:px-8">
-      <div class="max-w-7xl mx-auto flex space-x-1 sm:space-x-2 py-1.5 overflow-x-auto">
-        <button data-tab="dashboard" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all bg-sky-600 text-white shadow-sm flex items-center gap-1.5">
-          <span>📊</span>
-          <span>Dashboard</span>
-        </button>
-        <button data-tab="today" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-600 hover:bg-slate-200 flex items-center gap-1.5">
-          <span>📋</span>
-          <span>รายการนัดวันนี้</span>
-        </button>
-        <button data-tab="calendar" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-600 hover:bg-slate-200 flex items-center gap-1.5">
-          <span>📅</span>
-          <span>ปฏิทินนัดหมาย</span>
-        </button>
-        <button data-tab="manage" class="px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-600 hover:bg-slate-200 flex items-center gap-1.5">
-          <span>📁</span>
-          <span>จัดการนัดหมายทั้งหมด</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- ========================================================================= -->
-  <!-- Main Content Body                                                         -->
-  <!-- ========================================================================= -->
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-
-    <!-- ======================================================================= -->
-    <!-- TAB 1: DASHBOARD                                                        -->
-    <!-- ======================================================================= -->
-    <section id="tab-dashboard" class="space-y-6 animate-fade-in">
-      
-      <!-- Top 4 Summary Cards -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        
-        <!-- Card 1: นัดวันนี้ -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">นัดวันนี้</p>
-            <h3 id="statTodayCount" class="text-3xl font-extrabold text-slate-900 mt-1">0</h3>
-            <p class="text-xs text-sky-600 font-medium mt-1">ประจำวันที่เปิดระบบ</p>
-          </div>
-          <div class="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center text-2xl font-bold">
-            🗓
-          </div>
-        </div>
-
-        <!-- Card 2: นัดทั้งหมด -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-wider text-slate-400">นัดทั้งหมดในระบบ</p>
-            <h3 id="statTotalCount" class="text-3xl font-extrabold text-slate-900 mt-1">0</h3>
-            <p class="text-xs text-slate-400 font-medium mt-1">รวมทุกเดือนในชีต</p>
-          </div>
-          <div class="w-12 h-12 rounded-2xl bg-slate-50 text-slate-600 flex items-center justify-center text-2xl font-bold">
-            👥
-          </div>
-        </div>
-
-        <!-- Card 3: นัดที่ยังไม่ได้โทร -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-wider text-rose-500">นัดที่ยังไม่ได้โทรวันนี้</p>
-            <h3 id="statPendingCall" class="text-3xl font-extrabold text-rose-600 mt-1">0</h3>
-            <p id="statPendingCallSub" class="text-xs text-rose-400 font-medium mt-1">(ค้างโทรทั้งหมด 0 ราย)</p>
-          </div>
-          <div class="w-12 h-12 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center text-2xl font-bold">
-            📞
-          </div>
-        </div>
-
-        <!-- Card 4: โทรแล้วและบันทึก HosXP แล้ว -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs flex items-center justify-between">
-          <div>
-            <p class="text-xs font-bold uppercase tracking-wider text-emerald-600">โทร & ลง Hos แล้ววันนี้</p>
-            <h3 id="statCompleted" class="text-3xl font-extrabold text-emerald-600 mt-1">0</h3>
-            <p id="statCompletedSub" class="text-xs text-emerald-600 font-medium mt-1">(เสร็จสมบูรณ์รวม 0 ราย)</p>
-          </div>
-          <div class="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-2xl font-bold">
-            ✓
-          </div>
-        </div>
-
-      </div>
-
-      <!-- Incomplete Tasks Alert Box -->
-      <div id="incompleteAlertsContainer">
-        <!-- Rendered by JS -->
-      </div>
-
-      <!-- Quick Actions and Department Breakdown -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Left: Department Breakdown -->
-        <div class="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <span>🩺</span>
-              <span>จำนวนนัดหมายแยกตามแผนก</span>
-            </h3>
-            <span class="text-xs text-slate-400">ภาพรวมทั้งหมด</span>
-          </div>
-          <div id="deptStatsContainer" class="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <!-- Rendered by JS -->
-          </div>
-        </div>
-
-        <!-- Right: LINE Notification Quick Card & Sheet Link -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-          <h3 class="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <span>🚀</span>
-            <span>การดำเนินการด่วน</span>
-          </h3>
-
-          <div class="bg-emerald-50 p-4 rounded-xl border border-emerald-100 space-y-2">
-            <div class="flex items-center gap-2 text-emerald-900 font-bold text-xs">
-              <span>🔔</span>
-              <span>แจ้งเตือนเข้ากลุ่ม LINE</span>
-            </div>
-            <p class="text-xs text-emerald-700">ส่งรายชื่อผู้ป่วยที่ต้องโทรวันนี้เข้ากลุ่ม LINE ด้วย Messaging API</p>
-            <button onclick="LineNotificationModule.openPreviewModal()" class="w-full mt-2 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg shadow-xs transition-colors">
-              เปิดหน้าต่างแจ้งเตือน LINE
-            </button>
-          </div>
-
-          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2">
-            <div class="flex items-center justify-between text-xs font-bold text-slate-700">
-              <span class="flex items-center gap-1.5">
-                <span>📊</span> Google Sheets
-              </span>
-              <a href="https://docs.google.com/spreadsheets/d/1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE/edit?gid=0#gid=0" target="_blank" class="text-sky-600 hover:underline">
-                เปิดสเปรดชีต ↗
-              </a>
-            </div>
-            <p class="text-[11px] text-slate-500 font-mono truncate">1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE</p>
-          </div>
-
-        </div>
-
-      </div>
-
-    </section>
-
-    <!-- ======================================================================= -->
-    <!-- TAB 2: TODAY'S QUEUE                                                    -->
-    <!-- ======================================================================= -->
-    <section id="tab-today" class="hidden space-y-4 animate-fade-in">
-      
-      <!-- Queue Header Controls -->
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div>
-          <h2 id="queueDateHeaderTitle" class="text-base sm:text-lg font-bold text-slate-900">
-            รายการนัดประจำวัน
-          </h2>
-          <p class="text-xs text-slate-500">ติ๊กเครื่องหมายเพื่อบันทึกการโทรและการลง HosXP ทันที</p>
-        </div>
-
-        <div class="flex items-center gap-2 self-stretch sm:self-auto">
-          <label class="text-xs text-slate-500 font-semibold whitespace-nowrap">เลือกวันที่:</label>
-          <input type="date" id="queueDateInput" class="px-3 py-1.5 text-xs font-bold rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 focus:outline-none">
-          <button onclick="window.print()" class="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 transition-colors" title="พิมพ์หน้ารายการ">
-            🖨 พิมพ์
-          </button>
-        </div>
-      </div>
-
-      <!-- Queue Table -->
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-slate-50 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th class="py-3 px-4 text-center w-12">ลำดับ</th>
-                <th class="py-3 px-4">ผู้ป่วย / HN</th>
-                <th class="py-3 px-4">แผนก / แพทย์</th>
-                <th class="py-3 px-4">การติดต่อ & หมายเหตุ</th>
-                <th class="py-3 px-4 text-center w-28">📞 โทรนัด (TELE)</th>
-                <th class="py-3 px-4 text-center w-28">💻 บันทึก HosXP</th>
-                <th class="py-3 px-4 text-right w-20">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody id="todayQueueTableBody">
-              <!-- Rendered by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </section>
-
-    <!-- ======================================================================= -->
-    <!-- TAB 3: CALENDAR                                                         -->
-    <!-- ======================================================================= -->
-    <section id="tab-calendar" class="hidden space-y-4 animate-fade-in">
-      
-      <!-- Calendar Controls & Legend -->
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        
-        <!-- Legend -->
-        <div class="flex flex-wrap items-center gap-3 text-xs">
-          <span class="font-bold text-slate-700">คำอธิบายสี:</span>
-          <span class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block"></span>
-            <span class="text-slate-600">โทรแล้ว + ลง HosXP แล้ว</span>
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>
-            <span class="text-slate-600">ดำเนินการบางส่วน</span>
-          </span>
-          <span class="flex items-center gap-1.5">
-            <span class="w-3 h-3 rounded-full bg-rose-500 inline-block"></span>
-            <span class="text-slate-600">ยังไม่ได้ดำเนินการ</span>
-          </span>
-        </div>
-
-        <!-- Filter Dropdown -->
-        <div class="flex items-center gap-2">
-          <select id="calendarDeptSelect" onchange="CalendarModule.filterDepartment(this.value)" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <option value="ALL">ทุกแผนก (All)</option>
-            <option value="MED">MED (อายุรกรรม)</option>
-            <option value="SX">SX (ศัลยกรรม)</option>
-            <option value="PED">PED / กุมาร</option>
-          </select>
-          <select id="calendarStatusSelect" onchange="CalendarModule.filterStatus(this.value)" class="px-3 py-1.5 text-xs font-semibold rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <option value="ALL">ทุกสถานะ</option>
-            <option value="COMPLETED">ดำเนินการครบแล้ว</option>
-            <option value="NO_CALL">ยังไม่ได้โทร</option>
-            <option value="PARTIAL">ดำเนินการบางส่วน</option>
-          </select>
-        </div>
-
-      </div>
-
-      <!-- Calendar Container -->
-      <div class="bg-white p-4 sm:p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div id="calendarContainer"></div>
-      </div>
-
-    </section>
-
-    <!-- ======================================================================= -->
-    <!-- TAB 4: MANAGE APPOINTMENTS                                              -->
-    <!-- ======================================================================= -->
-    <section id="tab-manage" class="hidden space-y-4 animate-fade-in">
-      
-      <!-- Search & Filters Bar -->
-      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-        
-        <!-- Search Input -->
-        <div class="relative flex-1">
-          <input type="text" id="globalSearchInput" placeholder="🔍 ค้นหาจากชื่อผู้ป่วย, HN, เลข ปชช., เบอร์โทร, แพทย์ หรือหมายเหตุ..." class="w-full pl-4 pr-10 py-2 text-xs font-medium rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-        </div>
-
-        <!-- Filters -->
-        <div class="flex items-center gap-2">
-          <select id="manageDeptFilter" class="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <option value="ALL">ทุกแผนก</option>
-            <option value="MED">MED</option>
-            <option value="SX">SX</option>
-            <option value="PED">PED / กุมาร</option>
-          </select>
-
-          <select id="manageStatusFilter" class="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <option value="ALL">ทุกสถานะ</option>
-            <option value="COMPLETED">ครบถ้วน (โทร+Hos)</option>
-            <option value="NO_CALL">ยังไม่โทร</option>
-            <option value="PARTIAL">บางส่วน</option>
-          </select>
-
-          <button onclick="App.openAddAppointmentModal()" class="px-4 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-xs transition-colors whitespace-nowrap">
-            ➕ เพิ่มนัด
-          </button>
-        </div>
-
-      </div>
-
-      <!-- Table Container -->
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center text-xs text-slate-500 font-semibold">
-          <span id="manageTableCount">กำลังโหลดรายการ...</span>
-          <button onclick="App.syncWithGoogleSheets()" class="text-sky-600 hover:underline flex items-center gap-1 font-bold">
-            🔄 รีเฟรชข้อมูล
-          </button>
-        </div>
-        <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse">
-            <thead>
-              <tr class="bg-slate-50/70 border-b border-slate-200 text-[11px] font-bold uppercase tracking-wider text-slate-500">
-                <th class="py-3 px-3 text-center w-12">ลำดับ</th>
-                <th class="py-3 px-3">วันนัด</th>
-                <th class="py-3 px-3">ผู้ป่วย / HN</th>
-                <th class="py-3 px-3">แผนก / แพทย์</th>
-                <th class="py-3 px-3">เบอร์โทร / Line</th>
-                <th class="py-3 px-3">หมายเหตุ</th>
-                <th class="py-3 px-3 text-center">สถานะ</th>
-                <th class="py-3 px-3 text-right w-28">จัดการ</th>
-              </tr>
-            </thead>
-            <tbody id="manageTableBody">
-              <!-- Rendered by JS -->
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-    </section>
-
-  </main>
+    <!-- Floating action button (mobile) -->
+    <button type="button" class="fab" onclick="App.openAddAppointmentModal()" aria-label="เพิ่มนัดหมาย">
+      <svg class="icon icon--lg" aria-hidden="true"><use href="#i-plus"></use></svg>
+      <span>เพิ่มนัด</span>
+    </button>
+  </div>
 
   <!-- ========================================================================= -->
   <!-- MODAL: Add / Edit Appointment                                             -->
   <!-- ========================================================================= -->
-  <div id="appointmentModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <h3 id="appointmentModalTitle" class="text-base font-bold text-slate-900">
-          ➕ บันทึกนัดหมาย Telemed
-        </h3>
-        <button onclick="App.closeAppointmentModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
-      </div>
-
-      <form id="appointmentForm" onsubmit="App.handleSaveAppointment(event)" class="space-y-3.5 text-xs font-sans">
-        <input type="hidden" id="formAppointmentId">
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">วันนัดหมาย <span class="text-rose-500">*</span></label>
-            <input type="date" id="formDate" required class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold">
+  <div id="appointmentModal" class="modal">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="appointmentModalTitle">
+      <form id="appointmentForm" onsubmit="App.handleSaveAppointment(event)">
+        <div class="dialog-head">
+          <div class="dialog-head-text">
+            <h3 id="appointmentModalTitle" class="dialog-title">บันทึกนัดหมาย Telemed</h3>
           </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">แผนก <span class="text-rose-500">*</span></label>
-            <select id="formDept" required class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold">
-              <option value="MED">MED (อายุรกรรม)</option>
-              <option value="Sx">Sx (ศัลยกรรม)</option>
-              <option value="Ped">Ped (กุมารเวชกรรม)</option>
-              <option value="Ortho">Ortho (กระดูกและข้อ)</option>
-              <option value="OB-GYN">OB-GYN (สูติ-นรีเวช)</option>
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">ชื่อ-สกุล ผู้ป่วย <span class="text-rose-500">*</span></label>
-          <input type="text" id="formName" required placeholder="เช่น นายสมชาย ใจดี" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-medium">
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">HN ผู้ป่วย</label>
-            <input type="text" id="formHn" placeholder="เช่น 670001234" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">เลขประจำตัวประชาชน (CID)</label>
-            <input type="text" id="formCid" placeholder="13 หลัก" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">แพทย์ผู้นัด</label>
-            <input type="text" id="formDoctor" placeholder="เช่น นพ.นภัทร" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-          </div>
-          <div>
-            <label class="block font-bold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
-            <input type="tel" id="formPhone" placeholder="เช่น 0812345678" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-semibold text-emerald-700">
-          </div>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">ชื่อ LINE ผู้ป่วยหรือญาติ</label>
-          <input type="text" id="formLineName" placeholder="เช่น Somchai Telemed" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">หมายเหตุ / เหตุผลการนัด</label>
-          <textarea id="formNotes" rows="2" placeholder="เช่น ฟังผล H/C, ติดตามอาการหลังผ่าตัด" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500"></textarea>
-        </div>
-
-        <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-around">
-          <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="formTele" class="w-4 h-4 text-emerald-600 rounded">
-            <span class="font-bold text-slate-700">โทรนัดแล้ว (TELE)</span>
-          </label>
-          <label class="inline-flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" id="formHosxp" class="w-4 h-4 text-indigo-600 rounded">
-            <span class="font-bold text-slate-700">บันทึก HosXP แล้ว</span>
-          </label>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-          <button type="button" onclick="App.closeAppointmentModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold">
-            ยกเลิก
+          <button type="button" class="icon-btn" data-modal-close onclick="App.closeAppointmentModal()" aria-label="ปิด">
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
           </button>
-          <button type="submit" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-xs">
-            💾 บันทึกข้อมูล
+        </div>
+
+        <div class="dialog-body">
+          <input type="hidden" id="formAppointmentId">
+          <div class="form-grid">
+            <div class="field">
+              <label class="label" for="formDate">วันนัดหมาย <span class="req">*</span></label>
+              <input type="date" id="formDate" class="input" required>
+            </div>
+            <div class="field">
+              <label class="label" for="formDept">แผนก <span class="req">*</span></label>
+              <select id="formDept" class="select" required>
+                <option value="MED">MED (อายุรกรรม)</option>
+                <option value="Sx">Sx (ศัลยกรรม)</option>
+                <option value="Ped">Ped (กุมารเวชกรรม)</option>
+                <option value="Ortho">Ortho (กระดูกและข้อ)</option>
+                <option value="OB-GYN">OB-GYN (สูติ-นรีเวช)</option>
+              </select>
+            </div>
+
+            <div class="field span-2">
+              <label class="label" for="formName">ชื่อ-สกุล ผู้ป่วย <span class="req">*</span></label>
+              <input type="text" id="formName" class="input" required placeholder="เช่น นายสมชาย ใจดี" autocomplete="off">
+            </div>
+
+            <div class="field">
+              <label class="label" for="formHn">HN ผู้ป่วย</label>
+              <input type="text" id="formHn" class="input mono" placeholder="เช่น 670001234" inputmode="numeric" autocomplete="off">
+            </div>
+            <div class="field">
+              <label class="label" for="formCid">เลขประจำตัวประชาชน (CID)</label>
+              <input type="text" id="formCid" class="input mono" placeholder="13 หลัก" inputmode="numeric" maxlength="13" autocomplete="off">
+            </div>
+
+            <div class="field">
+              <label class="label" for="formDoctor">แพทย์ผู้นัด</label>
+              <input type="text" id="formDoctor" class="input" placeholder="เช่น นพ.นภัทร" autocomplete="off">
+            </div>
+            <div class="field">
+              <label class="label" for="formPhone">เบอร์โทรศัพท์</label>
+              <input type="tel" id="formPhone" class="input" placeholder="เช่น 0812345678" autocomplete="off">
+            </div>
+
+            <div class="field span-2">
+              <label class="label" for="formLineName">ชื่อ LINE ผู้ป่วยหรือญาติ</label>
+              <input type="text" id="formLineName" class="input" placeholder="เช่น Somchai Telemed" autocomplete="off">
+            </div>
+
+            <div class="field span-2">
+              <label class="label" for="formNotes">หมายเหตุ / เหตุผลการนัด</label>
+              <textarea id="formNotes" class="textarea" rows="2" placeholder="เช่น ฟังผล H/C, ติดตามอาการหลังผ่าตัด"></textarea>
+            </div>
+
+            <div class="check-panel span-2">
+              <label class="check check--success">
+                <input type="checkbox" id="formTele">
+                <span class="check-label">โทรนัดแล้ว (TELE)</span>
+              </label>
+              <label class="check">
+                <input type="checkbox" id="formHosxp">
+                <span class="check-label">บันทึก HosXP แล้ว</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <div class="dialog-foot">
+          <button type="button" class="btn btn--text" onclick="App.closeAppointmentModal()">ยกเลิก</button>
+          <button type="submit" class="btn btn--filled">
+            <svg class="icon" aria-hidden="true"><use href="#i-save"></use></svg>
+            <span>บันทึกข้อมูล</span>
           </button>
         </div>
       </form>
@@ -503,159 +509,172 @@
   <!-- ========================================================================= -->
   <!-- MODAL: Patient Detail View                                                -->
   <!-- ========================================================================= -->
-  <div id="patientDetailModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <h3 class="text-base font-bold text-slate-900">
-          📋 รายละเอียดผู้ป่วยนัด Telemed
-        </h3>
-        <button onclick="App.closePatientDetailModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+  <div id="patientDetailModal" class="modal">
+    <div class="dialog dialog--sm" role="dialog" aria-modal="true" aria-labelledby="patientDetailTitle">
+      <div class="dialog-head">
+        <div class="dialog-head-text">
+          <h3 id="patientDetailTitle" class="dialog-title">รายละเอียดผู้ป่วยนัด Telemed</h3>
+        </div>
+        <button type="button" class="icon-btn" data-modal-close onclick="App.closePatientDetailModal()" aria-label="ปิด">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
       </div>
-
-      <div id="patientDetailBody">
-        <!-- Rendered by JS -->
-      </div>
+      <div class="dialog-body" id="patientDetailBody"><!-- Rendered by JS --></div>
+      <div class="dialog-foot" id="patientDetailFoot"><!-- Rendered by JS --></div>
     </div>
   </div>
 
   <!-- ========================================================================= -->
   <!-- MODAL: LINE Notification Center                                           -->
   <!-- ========================================================================= -->
-  <div id="lineNotificationModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 space-y-4 max-h-[90vh] overflow-y-auto">
-      
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <div class="flex items-center gap-2">
-          <span class="text-xl">🔔</span>
-          <div>
-            <h3 class="text-base font-bold text-slate-900">ระบบแจ้งเตือน LINE Messaging API</h3>
-            <p class="text-xs text-slate-500">แจ้งเตือนกลุ่ม LINE เมื่อถึงวันนัด เพื่อเตือนให้โทรเยี่ยมคนไข้</p>
-          </div>
+  <div id="lineNotificationModal" class="modal">
+    <div class="dialog dialog--lg" role="dialog" aria-modal="true" aria-labelledby="lineModalTitle">
+      <div class="dialog-head">
+        <div class="dialog-head-text">
+          <h3 id="lineModalTitle" class="dialog-title">
+            <svg class="icon" aria-hidden="true"><use href="#i-bell"></use></svg>
+            <span>ระบบแจ้งเตือน LINE</span>
+          </h3>
+          <p class="dialog-sub">แจ้งเตือนกลุ่ม LINE เมื่อถึงวันนัด เพื่อเตือนให้โทรเยี่ยมคนไข้</p>
         </div>
-        <button onclick="LineNotificationModule.closePreviewModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
+        <button type="button" class="icon-btn" data-modal-close onclick="LineNotificationModule.closePreviewModal()" aria-label="ปิด">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
+        </button>
       </div>
 
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        
-        <!-- Left: Visual Flex Message Preview -->
-        <div>
-          <label class="block text-xs font-bold text-slate-700 mb-2">พรีวิว LINE Flex Message ที่จะส่ง:</label>
-          <div id="lineFlexPreview" class="border border-slate-200 rounded-2xl p-2 bg-slate-100 min-h-[300px] flex items-center justify-center">
-            <!-- Rendered by JS -->
+      <div class="dialog-body">
+        <div class="line-grid">
+          <div class="field">
+            <span class="label">พรีวิวข้อความที่จะส่งเข้า LINE</span>
+            <div id="lineFlexPreview" class="line-preview"><!-- Rendered by JS --></div>
           </div>
-        </div>
 
-        <!-- Right: Text Summary & Controls -->
-        <div class="space-y-3 text-xs">
-          <div>
-            <div class="flex justify-between items-center mb-1">
-              <label class="font-bold text-slate-700">ข้อความสรุป (สำหรับคัดลอก):</label>
-              <button onclick="LineNotificationModule.copySummaryToClipboard()" class="text-sky-600 font-bold hover:underline">
-                📋 คัดลอก
-              </button>
+          <div class="form-stack" style="align-content:start">
+            <div class="field">
+              <div class="label-row">
+                <label class="label" for="lineRawTextSummary">ข้อความสรุป (สำหรับคัดลอก)</label>
+                <button type="button" class="btn btn--text btn--sm" onclick="LineNotificationModule.copySummaryToClipboard()">
+                  <svg class="icon" aria-hidden="true"><use href="#i-copy"></use></svg>
+                  <span>คัดลอก</span>
+                </button>
+              </div>
+              <textarea id="lineRawTextSummary" class="summary-text" rows="9" readonly></textarea>
             </div>
-            <textarea id="lineRawTextSummary" rows="9" readonly class="w-full p-2.5 rounded-xl border border-slate-300 bg-slate-50 font-mono text-[11px] leading-relaxed"></textarea>
-          </div>
 
-          <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 text-amber-800 space-y-1">
-            <div class="font-bold">🛡️ ระบบป้องกันการส่งซ้ำ:</div>
-            <p class="text-[11px] text-amber-700">ระบบจะส่งเฉพาะรายการที่ "ยังไม่ได้โทร" และมีการบันทึกสถานะการแจ้งเตือนลงในชีตเพื่อป้องกันการส่งข้อความซ้ำ</p>
+            <div class="note">
+              <svg class="icon" aria-hidden="true"><use href="#i-shield"></use></svg>
+              <div>
+                <strong>ระบบป้องกันการส่งซ้ำ</strong>
+                <p>ระบบจะส่งเฉพาะรายการที่ยังไม่ได้โทร และบันทึกสถานะการแจ้งเตือนลงในชีตเพื่อป้องกันการส่งข้อความซ้ำ</p>
+              </div>
+            </div>
           </div>
-
-          <div class="pt-2 flex flex-col gap-2">
-            <button onclick="LineNotificationModule.sendNotification(false)" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-sm text-sm transition-colors flex items-center justify-center gap-2">
-              <span>🚀</span>
-              <span>ส่งแจ้งเตือนเข้ากลุ่ม LINE ทันที</span>
-            </button>
-            <button onclick="LineNotificationModule.sendNotification(true)" class="w-full py-1.5 text-slate-500 hover:text-slate-700 font-semibold rounded-lg text-xs">
-              ส่งซ้ำโดยบังคับ (Force Resend)
-            </button>
-          </div>
-
         </div>
-
       </div>
 
+      <div class="dialog-foot">
+        <button type="button" class="btn btn--text" onclick="LineNotificationModule.sendNotification(true)">ส่งซ้ำโดยบังคับ</button>
+        <button type="button" class="btn btn--success" onclick="LineNotificationModule.sendNotification(false)">
+          <svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>
+          <span>ส่งแจ้งเตือนเข้ากลุ่ม LINE</span>
+        </button>
+      </div>
     </div>
   </div>
 
   <!-- ========================================================================= -->
   <!-- MODAL: System Settings                                                    -->
   <!-- ========================================================================= -->
-  <div id="settingsModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-xs z-50 hidden items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl border border-slate-200 space-y-4">
-      
-      <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
-          <span>⚙️</span>
-          <span>การตั้งค่าระบบ TeleQueue</span>
-        </h3>
-        <button onclick="App.closeSettingsModal()" class="text-slate-400 hover:text-slate-600 text-lg">✕</button>
-      </div>
-
-      <form onsubmit="App.saveSettings(event)" class="space-y-3.5 text-xs font-sans">
-        
-        <div>
-          <div class="flex justify-between items-center mb-1">
-            <label class="font-bold text-slate-700">URL เว็บแอป Google Apps Script (Web App URL)</label>
-            <button type="button" onclick="App.testGasConnectionFromSettings()" class="text-xs font-bold text-sky-600 hover:underline">
-              🔗 ทดสอบเชื่อมต่อชีต
-            </button>
+  <div id="settingsModal" class="modal">
+    <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="settingsModalTitle">
+      <form onsubmit="App.saveSettings(event)">
+        <div class="dialog-head">
+          <div class="dialog-head-text">
+            <h3 id="settingsModalTitle" class="dialog-title">
+              <svg class="icon" aria-hidden="true"><use href="#i-sliders"></use></svg>
+              <span>การตั้งค่าระบบ</span>
+            </h3>
           </div>
-          <input type="url" id="settingGasUrl" placeholder="https://script.google.com/macros/s/.../exec" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono text-[11px]">
-          <p class="text-[10px] text-slate-500 mt-1">คัดลอกจาก Apps Script > <strong>Deploy</strong> > <strong>New deployment</strong> > ชนิด Web app (เข้าถึงได้: <strong>ทุกคน / Anyone</strong>)</p>
-        </div>
-
-        <div>
-          <div class="flex justify-between items-center mb-1">
-            <label class="font-bold text-slate-700">LINE Channel Access Token (Messaging API)</label>
-            <button type="button" onclick="App.testLineTokenFromSettings()" class="text-xs font-bold text-sky-600 hover:underline">
-              🔍 ทดสอบ Token
-            </button>
-          </div>
-          <input type="password" id="settingLineToken" placeholder="LINE Developers Channel Access Token (ยาว 170+ ตัวอักษร)" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono text-[11px]">
-          <p class="text-[10px] text-amber-600 mt-1">⚠️ ข้อควรระวัง: ต้องเป็น "Channel access token (long-lived)" จากแท็บ Messaging API เท่านั้น (ไม่ใช่ Channel Secret 32 ตัวอักษร)</p>
-        </div>
-
-        <div>
-          <div class="flex justify-between items-center mb-1">
-            <label class="font-bold text-slate-700">LINE Destination ID (Group ID หรือ User ID)</label>
-            <button type="button" onclick="App.sendTestMessageFromSettings()" class="text-xs font-bold text-emerald-600 hover:underline">
-              📨 ทดสอบส่งเข้ากลุ่ม
-            </button>
-          </div>
-          <input type="text" id="settingLineGroupId" placeholder="เช่น C8d1f2a34b5..." class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500 font-mono text-[11px]">
-          <p class="text-[10px] text-slate-500 mt-1">💡 ต้องเป็นรหัสประจำตัว เช่น <strong>C...</strong> (Group ID) หรือ <strong>U...</strong> (User ID) 32 ตัวอักษร และบอทต้องอยู่ในกลุ่มแล้ว</p>
-        </div>
-
-        <div>
-          <label class="block font-bold text-slate-700 mb-1">ชื่อผู้ปฏิบัติหน้าที่เริ่มต้น</label>
-          <input type="text" id="settingDefaultOperator" placeholder="เช่น พว.สมหญิง วงศ์สุข" class="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-sky-500">
-        </div>
-
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1">
-          <div class="font-bold text-slate-700">Google Sheets ID:</div>
-          <div class="font-mono text-slate-500 text-[11px] break-all">1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE</div>
-          <a href="https://docs.google.com/spreadsheets/d/1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE/edit?gid=0#gid=0" target="_blank" class="text-sky-600 hover:underline text-[11px] font-bold block pt-1">
-            เปิด Google Sheets ↗
-          </a>
-        </div>
-
-        <div class="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
-          <button type="button" onclick="App.closeSettingsModal()" class="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-xl font-bold">
-            ปิด
-          </button>
-          <button type="submit" class="px-5 py-2 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-xs">
-            💾 บันทึกการตั้งค่า
+          <button type="button" class="icon-btn" data-modal-close onclick="App.closeSettingsModal()" aria-label="ปิด">
+            <svg class="icon" aria-hidden="true"><use href="#i-x"></use></svg>
           </button>
         </div>
 
+        <div class="dialog-body">
+          <div class="form-stack">
+
+            <div class="field">
+              <div class="label-row">
+                <label class="label" for="settingGasUrl">URL เว็บแอป Google Apps Script</label>
+                <button type="button" class="btn btn--text btn--sm" onclick="App.testGasConnectionFromSettings()">
+                  <svg class="icon" aria-hidden="true"><use href="#i-link"></use></svg>
+                  <span>ทดสอบเชื่อมต่อชีต</span>
+                </button>
+              </div>
+              <input type="url" id="settingGasUrl" class="input mono" placeholder="https://script.google.com/macros/s/.../exec" style="font-size:13px">
+              <p class="hint">คัดลอกจาก Apps Script &gt; <strong>Deploy</strong> &gt; <strong>New deployment</strong> ชนิด Web app (ผู้เข้าถึง: <strong>Anyone</strong>)</p>
+            </div>
+
+            <div class="field">
+              <div class="label-row">
+                <label class="label" for="settingLineToken">LINE Channel Access Token</label>
+                <button type="button" class="btn btn--text btn--sm" onclick="App.testLineTokenFromSettings()">
+                  <svg class="icon" aria-hidden="true"><use href="#i-key"></use></svg>
+                  <span>ทดสอบ Token</span>
+                </button>
+              </div>
+              <input type="password" id="settingLineToken" class="input mono" placeholder="Channel access token (ยาว 170+ ตัวอักษร)" style="font-size:13px" autocomplete="off">
+              <p class="hint hint--warn">ต้องเป็น Channel access token (long-lived) จากแท็บ Messaging API เท่านั้น ไม่ใช่ Channel Secret 32 ตัวอักษร</p>
+            </div>
+
+            <div class="field">
+              <div class="label-row">
+                <label class="label" for="settingLineGroupId">LINE Destination ID (Group ID หรือ User ID)</label>
+                <button type="button" class="btn btn--text btn--sm" onclick="App.sendTestMessageFromSettings()">
+                  <svg class="icon" aria-hidden="true"><use href="#i-send"></use></svg>
+                  <span>ทดสอบส่งเข้ากลุ่ม</span>
+                </button>
+              </div>
+              <input type="text" id="settingLineGroupId" class="input mono" placeholder="เช่น C8d1f2a34b5..." style="font-size:13px" autocomplete="off">
+              <p class="hint">ต้องเป็นรหัสที่ขึ้นต้นด้วย <strong>C</strong> (Group ID) หรือ <strong>U</strong> (User ID) และบอทต้องอยู่ในกลุ่มแล้ว</p>
+            </div>
+
+            <div class="field">
+              <label class="label" for="settingDefaultOperator">ชื่อผู้ปฏิบัติหน้าที่เริ่มต้น</label>
+              <input type="text" id="settingDefaultOperator" class="input" placeholder="เช่น พว.สมหญิง วงศ์สุข" autocomplete="off">
+            </div>
+
+            <div class="tile">
+              <div class="tile-link">
+                <span class="tile-head" style="font-size:13px">
+                  <svg class="icon" aria-hidden="true"><use href="#i-database"></use></svg>
+                  <span>Google Sheets ID</span>
+                </span>
+                <a href="https://docs.google.com/spreadsheets/d/1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE/edit?gid=0#gid=0" target="_blank" rel="noopener">
+                  เปิดสเปรดชีต
+                  <svg class="icon icon--sm" aria-hidden="true"><use href="#i-external"></use></svg>
+                </a>
+              </div>
+              <p class="tile-id">1BEQYLBtiMZaCLld6i8mTrn59sKJ75N3kZIiLM7f-lGE</p>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="dialog-foot">
+          <button type="button" class="btn btn--text" onclick="App.closeSettingsModal()">ปิด</button>
+          <button type="submit" class="btn btn--filled">
+            <svg class="icon" aria-hidden="true"><use href="#i-save"></use></svg>
+            <span>บันทึกการตั้งค่า</span>
+          </button>
+        </div>
       </form>
     </div>
   </div>
 
   <!-- Scripts -->
   <script src="js/config.js"></script>
+  <script src="js/ui.js"></script>
   <script src="js/data.js"></script>
   <script src="js/api.js"></script>
   <script src="js/calendar.js"></script>

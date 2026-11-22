@@ -3,27 +3,29 @@
  */
 
 const LineNotificationModule = {
-  // สรุปข้อความแบบ Text สวยงามสำหรับคัดลอกด้วยตนเอง
+  // สรุปข้อความแบบ Text สำหรับคัดลอกด้วยตนเอง (ข้อความล้วน ไม่ใช้อิโมจิ)
   generateTextSummary: function(patients, thaiDateStr) {
+    const divider = "--------------------\n";
+
     if (!patients || patients.length === 0) {
-      return `🏥 ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ\n🗓 ประจำวันที่ ${thaiDateStr}\n✅ ไม่มีคิวนัด Telemed ที่ต้องโทรติดตามสำหรับวันนี้`;
+      return `ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ\nประจำวันที่ ${thaiDateStr}\nไม่มีคิวนัด Telemed ที่ต้องโทรติดตามสำหรับวันนี้`;
     }
 
-    let text = `🏥 ตึกพิเศษปาริฉัตร - หอสงฆ์อาพาธ\n`;
-    text += `📞 แจ้งเตือนนัด TELEMED ประจำวันที่ ${thaiDateStr}\n`;
-    text += `⏰ สรุปรายชื่อผู้ป่วยที่ต้องโทรเยี่ยม (${patients.length} ท่าน):\n`;
-    text += `────────────────────\n`;
+    let text = `ตึกพิเศษปาริฉัตร - หอสงฆ์อาพาธ\n`;
+    text += `แจ้งเตือนนัด TELEMED ประจำวันที่ ${thaiDateStr}\n`;
+    text += `สรุปรายชื่อผู้ป่วยที่ต้องโทรเยี่ยม (${patients.length} ท่าน):\n`;
+    text += divider;
 
     patients.forEach((p, index) => {
       text += `${index + 1}. ${p.name || "ไม่ระบุชื่อ"} (HN: ${p.hn || "-"})\n`;
-      text += `   🩺 แผนก: ${p.department || "-"} | แพทย์: ${p.doctor || "-"}\n`;
-      text += `   📞 โทร: ${p.phone || "ไม่มีเบอร์"}\n`;
-      if (p.lineName) text += `   💬 Line: ${p.lineName}\n`;
-      text += `   📝 นัดเพื่อ: ${p.notes || "ติดตามอาการ"}\n`;
-      text += `────────────────────\n`;
+      text += `   แผนก: ${p.department || "-"} | แพทย์: ${p.doctor || "-"}\n`;
+      text += `   โทร: ${p.phone || "ไม่มีเบอร์"}\n`;
+      if (p.lineName) text += `   LINE: ${p.lineName}\n`;
+      text += `   นัดเพื่อ: ${p.notes || "ติดตามอาการ"}\n`;
+      text += divider;
     });
 
-    text += `\n📋 ตรวจสอบและลงบันทึกคิว: ${CONFIG.GITHUB_REPO_URL}`;
+    text += `\nตรวจสอบและลงบันทึกคิว: ${CONFIG.GITHUB_REPO_URL}`;
     return text;
   },
 
@@ -46,48 +48,44 @@ const LineNotificationModule = {
     if (previewContainer) {
       if (pending.length === 0) {
         previewContainer.innerHTML = `
-          <div class="p-6 text-center text-slate-500 bg-emerald-50 rounded-2xl border border-emerald-200">
-            <div class="text-4xl mb-2">🎉</div>
-            <h4 class="font-bold text-emerald-800 text-lg">ดำเนินการโทรครบแล้วทุกราย</h4>
-            <p class="text-sm text-emerald-600 mt-1">ไม่มีผู้ป่วยที่ค้างโทรสำหรับวันนี้ (${thaiDateStr})</p>
+          <div class="empty">
+            <div class="empty-icon" style="background:var(--success-c);color:var(--success)">${icon("check-circle", "icon--xl")}</div>
+            <div class="empty-title">ดำเนินการโทรครบแล้วทุกราย</div>
+            <p class="empty-text">ไม่มีผู้ป่วยที่ค้างโทรสำหรับวันนี้ (${esc(thaiDateStr)})</p>
           </div>
         `;
       } else {
-        let itemsHtml = pending.map((p, idx) => `
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-xs space-y-1">
-            <div class="flex justify-between items-center font-bold text-slate-800 text-sm">
-              <span>${idx + 1}. ${p.name}</span>
-              <span class="px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 text-xs">${p.department || "ทั่วไป"}</span>
+        const itemsHtml = pending.map((p, idx) => `
+          <div class="flex-item">
+            <div class="flex-item-top">
+              <span>${idx + 1}. ${esc(p.name)}</span>
+              <span class="dept">${esc(p.department || "ทั่วไป")}</span>
             </div>
-            <div class="text-slate-600 flex justify-between">
-              <span>HN: <strong class="text-slate-900">${p.hn || "-"}</strong></span>
-              <span>แพทย์: <strong>${p.doctor || "-"}</strong></span>
+            <div class="flex-item-row">
+              <span>HN <strong>${esc(p.hn || "-")}</strong></span>
+              <span>แพทย์ <strong>${esc(p.doctor || "-")}</strong></span>
             </div>
-            <div class="flex justify-between items-center text-slate-600">
-              <span>โทร: <strong class="text-emerald-700">${p.phone || "ไม่มีเบอร์"}</strong></span>
-              ${p.lineName ? `<span class="text-slate-500">Line: ${p.lineName}</span>` : ""}
+            <div class="flex-item-row">
+              <span>โทร <strong style="color:var(--success)">${esc(p.phone || "ไม่มีเบอร์")}</strong></span>
+              ${p.lineName ? `<span>LINE ${esc(p.lineName)}</span>` : ""}
             </div>
-            <div class="text-slate-500 bg-white p-1.5 rounded border border-slate-100">
-              📝 ${p.notes || "ติดตามอาการ"}
-            </div>
+            <div class="meta" style="margin-top:2px">${icon("note")}<span>${esc(p.notes || "ติดตามอาการ")}</span></div>
           </div>
         `).join("");
 
         previewContainer.innerHTML = `
-          <div class="max-w-md mx-auto bg-white rounded-2xl shadow-md border border-slate-200 overflow-hidden font-sans">
-            <div class="bg-sky-600 p-4 text-white">
-              <div class="text-xs font-semibold uppercase tracking-wider text-sky-100">🏥 ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ</div>
-              <h3 class="text-base font-bold mt-0.5">📞 แจ้งเตือนนัด TELEMED ประจำวัน</h3>
-              <div class="text-xs text-amber-200 font-medium mt-1">🗓 ${thaiDateStr} (รอโทร ${pending.length} ท่าน)</div>
+          <div class="flex-card">
+            <div class="flex-card-head">
+              <div class="flex-card-eyebrow">ตึกพิเศษปาริฉัตร-หอสงฆ์อาพาธ</div>
+              <div class="flex-card-title">แจ้งเตือนนัด TELEMED ประจำวัน</div>
+              <div class="flex-card-date">${icon("calendar", "icon--sm")}<span>${esc(thaiDateStr)} (รอโทร ${pending.length} ท่าน)</span></div>
             </div>
-            <div class="p-3 space-y-2 max-h-72 overflow-y-auto">
+            <div class="flex-card-body">
               ${itemsHtml}
             </div>
-            <div class="p-3 bg-slate-50 border-t border-slate-100 text-center">
-              <span class="inline-block w-full py-2 bg-sky-600 text-white text-xs font-bold rounded-lg shadow-sm">
-                📋 เปิดระบบ TeleQueue เช็คคิว
-              </span>
-              <p class="text-[10px] text-slate-400 mt-1">ส่งผ่าน LINE Messaging API อัตโนมัติ</p>
+            <div class="flex-card-foot">
+              <span>เปิดระบบ TeleQueue เช็คคิว</span>
+              <small>ส่งผ่าน LINE Messaging API อัตโนมัติ</small>
             </div>
           </div>
         `;
@@ -101,20 +99,12 @@ const LineNotificationModule = {
     }
 
     // แสดง Modal
-    const modal = document.getElementById("lineNotificationModal");
-    if (modal) {
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
+    UI.openModal("lineNotificationModal");
   },
 
   // ปิด Modal
   closePreviewModal: function() {
-    const modal = document.getElementById("lineNotificationModal");
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-    }
+    UI.closeModal("lineNotificationModal");
   },
 
   // ดำเนินการยิง API แจ้งเตือนเข้า LINE กลุ่ม
@@ -125,7 +115,7 @@ const LineNotificationModule = {
         icon: "info",
         title: "ไม่มีรายการที่ต้องแจ้งเตือน",
         text: "ผู้ป่วยทุกคนในวันนี้นัดโทรเรียบร้อยแล้ว หรือไม่มีนัดสำหรับวันนี้",
-        confirmButtonColor: "#0284c7"
+        confirmButtonColor: "#0061A4"
       });
       return;
     }
@@ -138,8 +128,7 @@ const LineNotificationModule = {
         text: "พบรายการที่เคยแจ้งเตือนไปยังกลุ่ม LINE แล้ว คุณต้องการส่งซ้ำอีกครั้งหรือไม่?",
         icon: "warning",
         showCancelButton: true,
-        confirmButtonColor: "#0284c7",
-        cancelButtonColor: "#64748b",
+        confirmButtonColor: "#0061A4",
         confirmButtonText: "ยืนยันส่งซ้ำ",
         cancelButtonText: "ยกเลิก"
       });
@@ -169,7 +158,7 @@ const LineNotificationModule = {
           icon: "success",
           title: "ส่งแจ้งเตือนสำเร็จ!",
           text: res.message || `ส่งสรุปผู้ป่วย ${pending.length} ท่านไปยังกลุ่ม LINE เรียบร้อยแล้ว`,
-          confirmButtonColor: "#0284c7"
+          confirmButtonColor: "#0061A4"
         });
         this.closePreviewModal();
       } else {
@@ -180,7 +169,7 @@ const LineNotificationModule = {
         icon: "error",
         title: "เกิดข้อผิดพลาด",
         text: err.message,
-        confirmButtonColor: "#ef4444"
+        confirmButtonColor: "#B3261E"
       });
     }
   },

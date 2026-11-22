@@ -4,9 +4,38 @@
 
 let calendarInstance = null;
 
+// สีสถานะตามธีม Material (พื้นอ่อน + ขอบซ้ายเข้ม + ตัวอักษรเข้ม)
+const STATUS_COLORS = {
+  done:    { bg: "#D5F3DC", border: "#1E8E3E", text: "#00210B" },
+  partial: { bg: "#FFE9B5", border: "#D98E04", text: "#261A00" },
+  pending: { bg: "#FCE1DE", border: "#D93025", text: "#410002" }
+};
+
 const CalendarModule = {
   selectedDepartment: "ALL",
   selectedStatus: "ALL",
+
+  isCompact: function() {
+    return window.matchMedia("(max-width: 599.98px)").matches;
+  },
+
+  // แถบเครื่องมือ: บนมือถือย้ายปุ่มเปลี่ยนมุมมองไปไว้ด้านล่างเพื่อไม่ให้แน่น
+  getToolbars: function() {
+    if (this.isCompact()) {
+      return {
+        header: { left: "prev,next", center: "title", right: "today" },
+        footer: { center: "dayGridMonth,listMonth" }
+      };
+    }
+    return {
+      header: {
+        left: "prev,next today",
+        center: "title",
+        right: "dayGridMonth,timeGridWeek,timeGridDay,listMonth"
+      },
+      footer: false
+    };
+  },
 
   init: function(containerId) {
     const calendarEl = document.getElementById(containerId);
@@ -17,16 +46,20 @@ const CalendarModule = {
     }
 
     const self = this;
+    const bars = this.getToolbars();
 
     calendarInstance = new FullCalendar.Calendar(calendarEl, {
       initialView: "dayGridMonth",
       locale: "th",
       firstDay: 1, // เริ่มวันจันทร์
       height: "auto",
-      headerToolbar: {
-        left: "prev,next today",
-        center: "title",
-        right: "dayGridMonth,timeGridWeek,timeGridDay,listMonth"
+      dayMaxEvents: 3,
+      headerToolbar: bars.header,
+      footerToolbar: bars.footer,
+      windowResize: function() {
+        const next = self.getToolbars();
+        calendarInstance.setOption("headerToolbar", next.header);
+        calendarInstance.setOption("footerToolbar", next.footer);
       },
       buttonText: {
         today: "วันนี้",
@@ -65,13 +98,13 @@ const CalendarModule = {
       eventDidMount: function(info) {
         // Tooltip แสดงรายละเอียดเมื่อชี้เมาส์
         const p = info.event.extendedProps;
-        const statusText = (p.tele && p.hosxp) ? "✅ ดำเนินการครบแล้ว" :
-                           (p.tele && !p.hosxp) ? "⚠️ โทรแล้ว (ยังไม่ลง Hos)" :
-                           (!p.tele && p.hosxp) ? "⚠️ ลง Hos แล้ว (ยังไม่โทร)" :
-                           "❌ ยังไม่โทรและยังไม่ลง Hos";
-        
-        info.el.setAttribute("title", 
-          `👤 ${p.name || "-"}\nHN: ${p.hn || "-"}\n🩺 แผนก: ${p.department || "-"}\n📞 เบอร์: ${p.phone || "-"}\n📝 นัดเพื่อ: ${p.notes || "-"}\n📊 สถานะ: ${statusText}`
+        const statusText = (p.tele && p.hosxp) ? "ดำเนินการครบแล้ว" :
+                           (p.tele && !p.hosxp) ? "โทรแล้ว (ยังไม่ลง Hos)" :
+                           (!p.tele && p.hosxp) ? "ลง Hos แล้ว (ยังไม่โทร)" :
+                           "ยังไม่โทรและยังไม่ลง Hos";
+
+        info.el.setAttribute("title",
+          `${p.name || "-"}\nHN: ${p.hn || "-"}\nแผนก: ${p.department || "-"}\nเบอร์: ${p.phone || "-"}\nนัดเพื่อ: ${p.notes || "-"}\nสถานะ: ${statusText}`
         );
       }
     });
@@ -98,18 +131,12 @@ const CalendarModule = {
     });
 
     return filtered.map(a => {
-      let bgColor = "#ef4444"; // แดง (ยังไม่ดำเนินการ)
-      let borderColor = "#dc2626";
-      let textColor = "#ffffff";
+      let c = STATUS_COLORS.pending; // แดง (ยังไม่ดำเนินการ)
 
       if (a.tele && a.hosxp) {
-        // เขียว (โทรแล้ว + HosXP แล้ว)
-        bgColor = "#10b981";
-        borderColor = "#059669";
+        c = STATUS_COLORS.done; // เขียว (โทรแล้ว + HosXP แล้ว)
       } else if (a.tele || a.hosxp) {
-        // เหลือง/ส้ม (ดำเนินการบางส่วน)
-        bgColor = "#f59e0b";
-        borderColor = "#d97706";
+        c = STATUS_COLORS.partial; // เหลือง/ส้ม (ดำเนินการบางส่วน)
       }
 
       const deptPrefix = a.department ? `[${a.department}] ` : "";
@@ -120,9 +147,9 @@ const CalendarModule = {
         title: title,
         start: a.date,
         allDay: true,
-        backgroundColor: bgColor,
-        borderColor: borderColor,
-        textColor: textColor,
+        backgroundColor: c.bg,
+        borderColor: c.border,
+        textColor: c.text,
         extendedProps: {
           ...a
         }

@@ -1,6 +1,16 @@
 /**
  * app.js - Main Application Controller for TeleQueue
+ *
+ * หมายเหตุ: ตรรกะการทำงาน (DataStore / ApiService) คงเดิม
+ * ปรับเฉพาะส่วนแสดงผลให้เป็น Material Design และใช้ไอคอน SVG แทนอิโมจิ
  */
+
+// สีปุ่มของ SweetAlert2 ให้ตรงกับธีม
+const COLOR = {
+  primary: "#0061A4",
+  success: "#146C2E",
+  danger: "#B3261E"
+};
 
 const App = {
   activeTab: "dashboard",
@@ -13,7 +23,9 @@ const App = {
   // เริ่มต้นระบบ
   init: async function() {
     this.currentQueueDate = getTodayIso();
-    
+
+    UI.init();
+
     // ตั้งค่าตัวเลือกผู้ใช้งาน
     this.initOperatorDisplay();
 
@@ -45,8 +57,7 @@ const App = {
       inputLabel: "ชื่อ-สกุล หรือ รหัสเจ้าหน้าที่ (สำหรับลงบันทึกเวร)",
       inputValue: current,
       showCancelButton: true,
-      confirmButtonColor: "#0284c7",
-      cancelButtonColor: "#64748b",
+      confirmButtonColor: COLOR.primary,
       confirmButtonText: "บันทึก",
       cancelButtonText: "ยกเลิก",
       inputValidator: (value) => {
@@ -114,6 +125,7 @@ const App = {
     if (queueDateInput) {
       queueDateInput.value = this.currentQueueDate;
       queueDateInput.addEventListener("change", (e) => {
+        if (!e.target.value) return;
         self.currentQueueDate = e.target.value;
         self.renderTodayQueue();
       });
@@ -124,15 +136,14 @@ const App = {
   switchTab: function(tabName) {
     this.activeTab = tabName;
 
-    // เปลี่ยนสถานะปุ่มแท็บ
+    // เปลี่ยนสถานะปุ่มเมนู (ทั้งแถบล่างบนมือถือและแถบข้างบนเดสก์ท็อป)
     document.querySelectorAll("[data-tab]").forEach(btn => {
       const active = btn.getAttribute("data-tab") === tabName;
+      btn.classList.toggle("is-active", active);
       if (active) {
-        btn.classList.add("bg-sky-600", "text-white", "shadow-sm");
-        btn.classList.remove("text-slate-600", "hover:bg-slate-100");
+        btn.setAttribute("aria-current", "page");
       } else {
-        btn.classList.remove("bg-sky-600", "text-white", "shadow-sm");
-        btn.classList.add("text-slate-600", "hover:bg-slate-100");
+        btn.removeAttribute("aria-current");
       }
     });
 
@@ -140,14 +151,18 @@ const App = {
     const tabs = ["dashboard", "calendar", "today", "manage"];
     tabs.forEach(t => {
       const section = document.getElementById(`tab-${t}`);
-      if (section) {
-        if (t === tabName) {
-          section.classList.remove("hidden");
-        } else {
-          section.classList.add("hidden");
-        }
+      if (!section) return;
+      if (t === tabName) {
+        section.classList.remove("hidden");
+        section.classList.remove("animate-in");
+        void section.offsetWidth; // รีสตาร์ทแอนิเมชัน
+        section.classList.add("animate-in");
+      } else {
+        section.classList.add("hidden");
       }
     });
+
+    window.scrollTo({ top: 0 });
 
     // โหลดข้อมูลเฉพาะของแท็บนั้น
     if (tabName === "calendar") {
@@ -163,27 +178,31 @@ const App = {
     }
   },
 
+  // แสดงสถานะการซิงค์ที่มุมบนขวา
+  setSyncStatus: function(state, text) {
+    const el = document.getElementById("syncStatusIndicator");
+    if (!el) return;
+    el.setAttribute("data-state", state);
+    el.setAttribute("title", text);
+    el.innerHTML = `<span class="dot"></span><span class="sync-text">${esc(text)}</span>`;
+  },
+
   // ซิงค์ข้อมูลกับ Google Sheets
   syncWithGoogleSheets: async function() {
-    const syncStatusEl = document.getElementById("syncStatusIndicator");
-    if (syncStatusEl) {
-      syncStatusEl.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping mr-1.5"></span> กำลังซิงค์ข้อมูล...`;
-    }
+    this.setSyncStatus("loading", "กำลังซิงค์ข้อมูล...");
 
     try {
       const list = await ApiService.getAllAppointments();
-      if (syncStatusEl) {
-        const isConnected = ApiService.hasGasUrl();
-        syncStatusEl.innerHTML = isConnected ? 
-          `<span class="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 mr-1.5"></span> เชื่อมต่อ Google Sheets แล้ว` :
-          `<span class="inline-block w-2.5 h-2.5 rounded-full bg-sky-500 mr-1.5"></span> ฐานข้อมูลท้องถิ่น (${list.length} รายการ)`;
+      const isConnected = ApiService.hasGasUrl();
+      if (isConnected) {
+        this.setSyncStatus("ok", "เชื่อมต่อ Google Sheets แล้ว");
+      } else {
+        this.setSyncStatus("local", `ฐานข้อมูลท้องถิ่น (${list.length} รายการ)`);
       }
       this.renderAllViews();
     } catch (e) {
       console.error("Sync error:", e);
-      if (syncStatusEl) {
-        syncStatusEl.innerHTML = `<span class="inline-block w-2.5 h-2.5 rounded-full bg-rose-500 mr-1.5"></span> ซิงค์ขัดข้อง (ใช้ข้อมูลแคช)`;
-      }
+      this.setSyncStatus("error", "ซิงค์ขัดข้อง (ใช้ข้อมูลแคช)");
     }
   },
 
@@ -203,6 +222,9 @@ const App = {
   renderDashboard: function() {
     const stats = DataStore.calculateStats();
 
+    const dateEl = document.getElementById("dashboardDate");
+    if (dateEl) dateEl.textContent = `ข้อมูลประจำวันที่ ${formatThaiDateDisplay(getTodayIso())}`;
+
     // การ์ด 1: สรุปนัดวันนี้
     const todayCountEl = document.getElementById("statTodayCount");
     if (todayCountEl) todayCountEl.textContent = stats.todayCount;
@@ -216,7 +238,7 @@ const App = {
     if (pendingCallEl) {
       pendingCallEl.textContent = stats.pendingCallToday;
       const sub = document.getElementById("statPendingCallSub");
-      if (sub) sub.textContent = `(ค้างโทรทั้งหมด ${stats.pendingCallAll} ราย)`;
+      if (sub) sub.textContent = `ค้างโทรทั้งหมด ${stats.pendingCallAll} ราย`;
     }
 
     // การ์ด 4: โทรแล้วและบันทึก HosXP แล้ว
@@ -224,7 +246,7 @@ const App = {
     if (completedEl) {
       completedEl.textContent = stats.completedToday;
       const sub = document.getElementById("statCompletedSub");
-      if (sub) sub.textContent = `(เสร็จสมบูรณ์รวม ${stats.completedAll} ราย)`;
+      if (sub) sub.textContent = `เสร็จสมบูรณ์รวม ${stats.completedAll} ราย`;
     }
 
     // กล่องแจ้งเตือน: รายการที่ยังดำเนินการไม่ครบในวันนี้
@@ -241,15 +263,12 @@ const App = {
 
     if (!incompleteList || incompleteList.length === 0) {
       container.innerHTML = `
-        <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-emerald-800 flex items-center justify-between">
-          <div class="flex items-center gap-3">
-            <div class="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 font-bold text-lg">✓</div>
-            <div>
-              <h4 class="font-bold text-sm">การดำเนินการวันนี้ครบถ้วนทุกรายการแล้ว!</h4>
-              <p class="text-xs text-emerald-600 mt-0.5">โทรนัดและลงบันทึกในระบบ HosXP ครบ 100%</p>
-            </div>
+        <div class="panel panel--done">
+          <div class="panel-icon">${icon("check-circle", "icon--lg")}</div>
+          <div>
+            <h4 class="panel-title">การดำเนินการวันนี้ครบถ้วนทุกรายการแล้ว</h4>
+            <p class="page-sub" style="color:inherit;opacity:.8">โทรนัดและลงบันทึกในระบบ HosXP ครบ 100%</p>
           </div>
-          <span class="text-xs font-semibold px-3 py-1 bg-emerald-200 text-emerald-900 rounded-full">ยอดเยี่ยม</span>
         </div>
       `;
       return;
@@ -258,41 +277,47 @@ const App = {
     const items = incompleteList.map(a => {
       const missingTele = !a.tele;
       const missingHos = !a.hosxp;
-      
+
       let badge = "";
       if (missingTele && missingHos) {
-        badge = `<span class="px-2 py-0.5 bg-rose-100 text-rose-700 text-xs rounded-md font-bold">รอโทร & รอลง Hos</span>`;
+        badge = `<span class="badge badge--error">รอโทร และรอลง Hos</span>`;
       } else if (missingTele) {
-        badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-md font-bold">ยังไม่โทร</span>`;
+        badge = `<span class="badge badge--warning">ยังไม่โทร</span>`;
       } else if (missingHos) {
-        badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-700 text-xs rounded-md font-bold">ยังไม่ลง HosXP</span>`;
+        badge = `<span class="badge badge--warning">ยังไม่ลง HosXP</span>`;
       }
 
+      const phone = a.phone
+        ? `<a href="tel:${esc(String(a.phone).replace(/[^0-9]/g, ""))}" class="phone-link">${esc(a.phone)}</a>`
+        : `<span class="cell-muted">ไม่มีเบอร์</span>`;
+
+      const id = jsId(a.id);
+
       return `
-        <div class="bg-white p-3.5 rounded-xl border border-rose-100 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-3 hover:border-rose-300 transition-colors">
-          <div class="flex items-start gap-3">
-            <div class="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center font-bold text-xs mt-0.5">
-              ${a.department || "MED"}
-            </div>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="font-bold text-slate-800 text-sm">${a.name}</span>
-                <span class="text-xs text-slate-500 font-mono">HN: ${a.hn || "-"}</span>
+        <div class="task">
+          <div class="task-main">
+            <span class="dept">${esc(a.department || "MED")}</span>
+            <div style="min-width:0">
+              <div class="task-name-row">
+                <span class="task-name">${esc(a.name)}</span>
+                <span class="task-hn">HN ${esc(a.hn || "-")}</span>
                 ${badge}
               </div>
-              <div class="text-xs text-slate-500 mt-1 flex flex-wrap gap-x-4 gap-y-1">
-                <span>🩺 แพทย์: ${a.doctor || "-"}</span>
-                <span>📞 เบอร์: <a href="tel:${a.phone}" class="text-sky-600 font-bold hover:underline">${a.phone || "ไม่มีเบอร์"}</a></span>
-                <span>📝 ${a.notes || "ติดตามอาการ"}</span>
+              <div class="task-meta">
+                <span class="meta">${icon("stethoscope")} แพทย์ ${esc(a.doctor || "-")}</span>
+                <span class="meta">${icon("phone")} ${phone}</span>
+                <span class="meta">${icon("note")} ${esc(a.notes || "ติดตามอาการ")}</span>
               </div>
             </div>
           </div>
-          <div class="flex items-center gap-2 shrink-0">
-            <button onclick="App.quickToggleTele('${a.id}', ${!a.tele})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${a.tele ? 'bg-emerald-100 text-emerald-800' : 'bg-sky-50 text-sky-700 border border-sky-200 hover:bg-sky-100'}">
-              ${a.tele ? "✓ โทรแล้ว" : "📞 ยืนยันโทร"}
+          <div class="task-actions">
+            <button type="button" onclick="App.quickToggleTele('${id}', ${!a.tele})" class="btn btn--sm ${a.tele ? "btn--success-tonal" : "btn--outlined"}">
+              ${a.tele ? icon("check") : icon("phone")}
+              <span>${a.tele ? "โทรแล้ว" : "ยืนยันโทร"}</span>
             </button>
-            <button onclick="App.quickToggleHos('${a.id}', ${!a.hosxp})" class="px-3 py-1.5 text-xs font-semibold rounded-lg ${a.hosxp ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'}">
-              ${a.hosxp ? "✓ ลง Hos แล้ว" : "💻 ยืนยันลง Hos"}
+            <button type="button" onclick="App.quickToggleHos('${id}', ${!a.hosxp})" class="btn btn--sm ${a.hosxp ? "btn--success-tonal" : "btn--outlined"}">
+              ${a.hosxp ? icon("check") : icon("monitor")}
+              <span>${a.hosxp ? "ลง Hos แล้ว" : "ยืนยันลง Hos"}</span>
             </button>
           </div>
         </div>
@@ -300,17 +325,18 @@ const App = {
     }).join("");
 
     container.innerHTML = `
-      <div class="bg-rose-50 border border-rose-200 rounded-2xl p-4 md:p-5">
-        <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse"></span>
-            <h4 class="font-bold text-slate-900 text-sm md:text-base">แจ้งเตือน: รายการนัดวันนี้ที่ยังดำเนินการไม่ครบ (${incompleteList.length} ราย)</h4>
-          </div>
-          <button onclick="App.switchTab('today')" class="text-xs font-bold text-rose-700 hover:underline">
-            ดูคิววันนี้ทั้งหมด →
+      <div class="panel panel--attention">
+        <div class="panel-head">
+          <h4 class="panel-title">
+            <span class="pulse-dot"></span>
+            <span>รายการนัดวันนี้ที่ยังดำเนินการไม่ครบ (${incompleteList.length} ราย)</span>
+          </h4>
+          <button type="button" onclick="App.switchTab('today')" class="btn btn--text btn--sm">
+            <span>ดูคิววันนี้ทั้งหมด</span>
+            ${icon("arrow-right")}
           </button>
         </div>
-        <div class="space-y-2 max-h-72 overflow-y-auto pr-1">
+        <div class="task-list">
           ${items}
         </div>
       </div>
@@ -324,18 +350,19 @@ const App = {
 
     const keys = Object.keys(deptStats);
     if (keys.length === 0) {
-      container.innerHTML = `<p class="text-xs text-slate-400">ไม่มีข้อมูล</p>`;
+      container.innerHTML = `<p class="empty-text">ไม่มีข้อมูล</p>`;
       return;
     }
 
-    const html = keys.map(k => `
-      <div class="flex items-center justify-between p-2.5 bg-slate-50 rounded-xl border border-slate-100">
-        <span class="font-bold text-slate-700 text-xs">${k}</span>
-        <span class="px-2 py-0.5 bg-sky-100 text-sky-800 rounded-full font-bold text-xs">${deptStats[k]} ราย</span>
+    const max = Math.max(...keys.map(k => deptStats[k]), 1);
+
+    container.innerHTML = keys.map(k => `
+      <div class="dept-row">
+        <span class="dept-name" title="${esc(k)}">${esc(k)}</span>
+        <div class="bar" role="img" aria-label="${esc(k)} ${deptStats[k]} ราย"><span style="width:${Math.max(4, Math.round(deptStats[k] / max * 100))}%"></span></div>
+        <span class="dept-count">${deptStats[k]} ราย</span>
       </div>
     `).join("");
-
-    container.innerHTML = html;
   },
 
   // ==========================================
@@ -351,16 +378,21 @@ const App = {
       titleEl.textContent = `รายการนัดประจำวันที่ ${thaiDate} (${todayList.length} ราย)`;
     }
 
+    const queueInput = document.getElementById("queueDateInput");
+    if (queueInput && queueInput.value !== dateQuery) queueInput.value = dateQuery;
+
     const container = document.getElementById("todayQueueTableBody");
     if (!container) return;
 
     if (todayList.length === 0) {
       container.innerHTML = `
-        <tr>
-          <td colspan="7" class="py-12 text-center text-slate-400">
-            <div class="text-4xl mb-2">🗓</div>
-            <div class="font-semibold text-slate-600">ไม่มีรายการนัดหมายสำหรับวันที่ ${thaiDate}</div>
-            <p class="text-xs text-slate-400 mt-1">สามารถกดปุ่ม "เพิ่มนัดหมายใหม่" เพื่อสร้างรายการ</p>
+        <tr class="empty-row">
+          <td colspan="7">
+            <div class="empty">
+              <div class="empty-icon">${icon("calendar-empty", "icon--xl")}</div>
+              <div class="empty-title">ไม่มีรายการนัดหมายสำหรับวันที่ ${esc(thaiDate)}</div>
+              <p class="empty-text">กดปุ่ม "เพิ่มนัด" เพื่อสร้างรายการใหม่</p>
+            </div>
           </td>
         </tr>
       `;
@@ -369,60 +401,54 @@ const App = {
 
     const rows = todayList.map((a, idx) => {
       const isComplete = a.tele && a.hosxp;
-      const rowBg = isComplete ? "bg-emerald-50/40" : "";
+      const id = jsId(a.id);
+
+      const phoneHtml = a.phone
+        ? `<a href="tel:${esc(String(a.phone).replace(/[^0-9]/g, ""))}" class="phone-link">${icon("phone")}<span>${esc(a.phone)}</span></a>`
+        : `<span class="cell-muted">ไม่มีเบอร์โทร</span>`;
 
       return `
-        <tr class="border-b border-slate-100 hover:bg-slate-50/80 transition-colors ${rowBg}">
-          <td class="py-3.5 px-4 text-xs font-mono text-slate-400 text-center">${idx + 1}</td>
-          <td class="py-3.5 px-4">
-            <div class="font-bold text-slate-900 text-sm">${a.name}</div>
-            <div class="text-xs text-slate-500 font-mono mt-0.5">HN: <span class="font-bold text-slate-700">${a.hn || "-"}</span> | ปชช: ${a.cid || "-"}</div>
-            ${a.lineName ? `<div class="text-[11px] text-emerald-600 font-medium">💬 Line: ${a.lineName}</div>` : ""}
+        <tr class="${isComplete ? "row--done" : ""}">
+          <td class="cell-index">${idx + 1}</td>
+          <td class="cell-patient">
+            <div class="cell-name">${esc(a.name)}</div>
+            <div class="cell-sub">HN <strong class="mono">${esc(a.hn || "-")}</strong> &nbsp;|&nbsp; ปชช. <span class="mono">${esc(a.cid || "-")}</span></div>
+            ${a.lineName ? `<div class="cell-line">${icon("message")}<span>LINE: ${esc(a.lineName)}</span></div>` : ""}
           </td>
-          <td class="py-3.5 px-4 text-xs">
-            <span class="inline-block px-2.5 py-1 rounded-md font-bold text-xs bg-sky-100 text-sky-800 mb-1">${a.department || "-"}</span>
-            <div class="text-slate-600">พ. ${a.doctor || "-"}</div>
+          <td class="cell-dept">
+            <span class="dept">${esc(a.department || "-")}</span>
+            <div class="cell-doc">พ. ${esc(a.doctor || "-")}</div>
           </td>
-          <td class="py-3.5 px-4 text-xs">
-            ${a.phone ? `
-              <div class="flex items-center gap-1.5">
-                <a href="tel:${a.phone.replace(/[^0-9]/g, "")}" class="font-bold text-emerald-600 hover:text-emerald-700 hover:underline flex items-center gap-1">
-                  📞 ${a.phone}
-                </a>
-              </div>
-            ` : `<span class="text-slate-400 italic">ไม่มีเบอร์โทร</span>`}
-            <div class="text-slate-500 mt-1 text-[11px] line-clamp-2" title="${a.notes || ''}">
-              📝 ${a.notes || "-"}
-            </div>
+          <td class="cell-contact">
+            ${phoneHtml}
+            <div class="cell-notes" title="${esc(a.notes || "")}">${icon("note")}<span>${esc(a.notes || "-")}</span></div>
           </td>
-          <!-- Checkbox TELE -->
-          <td class="py-3.5 px-4 text-center">
-            <label class="inline-flex flex-col items-center cursor-pointer select-none">
-              <input type="checkbox" ${a.tele ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'tele', this.checked)" class="w-5 h-5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer">
-              <span class="text-[10px] mt-1 font-semibold ${a.tele ? 'text-emerald-700' : 'text-slate-400'}">
-                ${a.tele ? 'โทรแล้ว' : 'ยังไม่โทร'}
+          <td class="center cell-check" data-label="โทรนัด (TELE)">
+            <label class="check-cell">
+              <span class="check check--success">
+                <input type="checkbox" ${a.tele ? "checked" : ""} aria-label="โทรนัดแล้ว: ${esc(a.name)}" onchange="App.handleCheckboxChange('${id}', 'tele', this.checked)">
               </span>
-              ${a.teleOperator ? `<span class="text-[9px] text-slate-400 truncate max-w-[80px]" title="${a.teleOperator} (${a.teleTime || ''})">${a.teleOperator}</span>` : ''}
+              <span class="check-text">
+                <span class="check-state ${a.tele ? "is-on" : ""}">${a.tele ? "โทรแล้ว" : "ยังไม่โทร"}</span>
+                ${a.teleOperator ? `<span class="check-by" title="${esc(a.teleOperator)} (${esc(a.teleTime || "")})">${esc(a.teleOperator)}</span>` : ""}
+              </span>
             </label>
           </td>
-          <!-- Checkbox HosXP -->
-          <td class="py-3.5 px-4 text-center">
-            <label class="inline-flex flex-col items-center cursor-pointer select-none">
-              <input type="checkbox" ${a.hosxp ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}', 'hosxp', this.checked)" class="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer">
-              <span class="text-[10px] mt-1 font-semibold ${a.hosxp ? 'text-indigo-700' : 'text-slate-400'}">
-                ${a.hosxp ? 'ลง Hos แล้ว' : 'ยังไม่ลง'}
+          <td class="center cell-check" data-label="บันทึก HosXP">
+            <label class="check-cell">
+              <span class="check">
+                <input type="checkbox" ${a.hosxp ? "checked" : ""} aria-label="บันทึก HosXP แล้ว: ${esc(a.name)}" onchange="App.handleCheckboxChange('${id}', 'hosxp', this.checked)">
               </span>
-              ${a.hosOperator ? `<span class="text-[9px] text-slate-400 truncate max-w-[80px]" title="${a.hosOperator} (${a.hosTime || ''})">${a.hosOperator}</span>` : ''}
+              <span class="check-text">
+                <span class="check-state ${a.hosxp ? "is-on" : ""}">${a.hosxp ? "ลง Hos แล้ว" : "ยังไม่ลง"}</span>
+                ${a.hosOperator ? `<span class="check-by" title="${esc(a.hosOperator)} (${esc(a.hosTime || "")})">${esc(a.hosOperator)}</span>` : ""}
+              </span>
             </label>
           </td>
-          <td class="py-3.5 px-4 text-right">
-            <div class="flex items-center justify-end gap-1.5">
-              <button onclick="App.openPatientDetailModalById('${a.id}')" class="p-1.5 text-slate-400 hover:text-sky-600 hover:bg-sky-50 rounded-lg" title="ดูข้อมูล">
-                🔍
-              </button>
-              <button onclick="App.openEditAppointmentModal('${a.id}')" class="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg" title="แก้ไข">
-                ✏️
-              </button>
+          <td class="cell-actions no-print">
+            <div class="actions">
+              <button type="button" onclick="App.openPatientDetailModalById('${id}')" class="icon-btn icon-btn--primary" title="ดูข้อมูล" aria-label="ดูข้อมูล ${esc(a.name)}">${icon("eye")}</button>
+              <button type="button" onclick="App.openEditAppointmentModal('${id}')" class="icon-btn icon-btn--primary" title="แก้ไข" aria-label="แก้ไข ${esc(a.name)}">${icon("edit")}</button>
             </div>
           </td>
         </tr>
@@ -438,6 +464,23 @@ const App = {
     const queueInput = document.getElementById("queueDateInput");
     if (queueInput) queueInput.value = isoDate;
     this.switchTab("today");
+  },
+
+  // เลื่อนวันในหน้าคิว (delta = -1 / +1) หรือกลับมาวันนี้ (delta = 0)
+  shiftQueueDate: function(delta) {
+    if (delta === 0) {
+      this.currentQueueDate = getTodayIso();
+    } else {
+      const parts = (this.currentQueueDate || getTodayIso()).split("-").map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2] + delta);
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      this.currentQueueDate = `${y}-${m}-${day}`;
+    }
+    const queueInput = document.getElementById("queueDateInput");
+    if (queueInput) queueInput.value = this.currentQueueDate;
+    this.renderTodayQueue();
   },
 
   // ==========================================
@@ -470,12 +513,13 @@ const App = {
     DataStore.update(updateData);
     this.renderDashboard();
     this.renderTodayQueue();
+    this.renderManageTable();
     if (this.activeTab === "calendar") CalendarModule.refetchEvents();
 
     // บันทึกลง Google Sheets ผ่าน API
     try {
       const res = await ApiService.updateStatus(apt.rowIndex, field, isChecked, opName);
-      
+
       const fieldTitle = field === "tele" ? "ยืนยันการโทร" : "ยืนยันบันทึก HosXP";
       const syncNote = (res && res.fromCache) ? " (บันทึกในเครื่องชั่วคราว)" : " (ลง Google Sheets แล้ว)";
       Swal.fire({
@@ -537,11 +581,13 @@ const App = {
 
     if (filtered.length === 0) {
       tbody.innerHTML = `
-        <tr>
-          <td colspan="8" class="py-12 text-center text-slate-400">
-            <div class="text-3xl mb-1">🔍</div>
-            <div class="font-semibold text-slate-600">ไม่พบนัดหมายที่ตรงกับเงื่อนไข</div>
-            <p class="text-xs text-slate-400 mt-1">ลองเปลี่ยนคำค้นหา หรือล้างตัวกรอง</p>
+        <tr class="empty-row">
+          <td colspan="8">
+            <div class="empty">
+              <div class="empty-icon">${icon("search", "icon--xl")}</div>
+              <div class="empty-title">ไม่พบนัดหมายที่ตรงกับเงื่อนไข</div>
+              <p class="empty-text">ลองเปลี่ยนคำค้นหา หรือล้างตัวกรอง</p>
+            </div>
           </td>
         </tr>
       `;
@@ -551,49 +597,41 @@ const App = {
     const rows = filtered.map((a, idx) => {
       let statusBadge = "";
       if (a.tele && a.hosxp) {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800">✓ ครบถ้วน</span>`;
+        statusBadge = `<span class="badge badge--success">${icon("check")}ครบถ้วน</span>`;
       } else if (a.tele || a.hosxp) {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800">⏳ บางส่วน</span>`;
+        statusBadge = `<span class="badge badge--warning">${icon("hourglass")}บางส่วน</span>`;
       } else {
-        statusBadge = `<span class="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800">✕ รอเริ่ม</span>`;
+        statusBadge = `<span class="badge badge--error">${icon("x")}รอเริ่ม</span>`;
       }
 
+      const id = jsId(a.id);
+
       return `
-        <tr class="border-b border-slate-100 hover:bg-slate-50 transition-colors text-xs">
-          <td class="py-3 px-3 text-slate-400 font-mono text-center">${idx + 1}</td>
-          <td class="py-3 px-3 whitespace-nowrap">
-            <span class="font-bold text-slate-900">${a.thaiDate}</span>
-            <div class="text-[10px] text-slate-400 font-mono">${a.date}</div>
+        <tr>
+          <td class="cell-index">${idx + 1}</td>
+          <td class="cell-date" data-label="วันนัด" style="white-space:nowrap">
+            <div class="cell-name">${esc(a.thaiDate)}</div>
+            <div class="cell-sub mono">${esc(a.date)}</div>
           </td>
-          <td class="py-3 px-3">
-            <div class="font-bold text-slate-800">${a.name}</div>
-            <div class="text-[11px] text-slate-500 font-mono">HN: ${a.hn || "-"}</div>
+          <td class="cell-patient" data-label="ผู้ป่วย">
+            <div class="cell-name">${esc(a.name)}</div>
+            <div class="cell-sub mono">HN ${esc(a.hn || "-")}</div>
           </td>
-          <td class="py-3 px-3">
-            <span class="px-2 py-0.5 rounded bg-sky-50 text-sky-700 font-bold">${a.department || "-"}</span>
-            <div class="text-slate-500 mt-0.5">พ. ${a.doctor || "-"}</div>
+          <td class="cell-dept" data-label="แผนก / แพทย์">
+            <span class="dept">${esc(a.department || "-")}</span>
+            <div class="cell-doc">พ. ${esc(a.doctor || "-")}</div>
           </td>
-          <td class="py-3 px-3">
-            <div class="font-semibold text-slate-800">${a.phone || "-"}</div>
-            ${a.lineName ? `<div class="text-slate-400 text-[11px]">Line: ${a.lineName}</div>` : ""}
+          <td class="cell-contact" data-label="เบอร์โทร / LINE">
+            <div style="font-weight:600">${esc(a.phone || "-")}</div>
+            ${a.lineName ? `<div class="cell-sub">LINE: ${esc(a.lineName)}</div>` : ""}
           </td>
-          <td class="py-3 px-3 max-w-xs truncate" title="${a.notes || ''}">
-            ${a.notes || "-"}
-          </td>
-          <td class="py-3 px-3 text-center whitespace-nowrap">
-            ${statusBadge}
-          </td>
-          <td class="py-3 px-3 text-right whitespace-nowrap">
-            <div class="flex items-center justify-end gap-1">
-              <button onclick="App.openPatientDetailModalById('${a.id}')" class="px-2 py-1 text-slate-600 hover:bg-slate-200 rounded" title="ดูรายละเอียด">
-                ดู
-              </button>
-              <button onclick="App.openEditAppointmentModal('${a.id}')" class="px-2 py-1 text-sky-600 hover:bg-sky-50 rounded" title="แก้ไข">
-                แก้ไข
-              </button>
-              <button onclick="App.confirmDeleteAppointment('${a.id}')" class="px-2 py-1 text-rose-600 hover:bg-rose-50 rounded" title="ลบ">
-                ลบ
-              </button>
+          <td class="cell-notes-col cell-trunc" data-label="หมายเหตุ" title="${esc(a.notes || "")}">${esc(a.notes || "-")}</td>
+          <td class="center cell-status" data-label="สถานะ" style="white-space:nowrap">${statusBadge}</td>
+          <td class="cell-actions">
+            <div class="actions">
+              <button type="button" onclick="App.openPatientDetailModalById('${id}')" class="icon-btn icon-btn--primary" title="ดูรายละเอียด" aria-label="ดูรายละเอียด ${esc(a.name)}">${icon("eye")}</button>
+              <button type="button" onclick="App.openEditAppointmentModal('${id}')" class="icon-btn icon-btn--primary" title="แก้ไข" aria-label="แก้ไข ${esc(a.name)}">${icon("edit")}</button>
+              <button type="button" onclick="App.confirmDeleteAppointment('${id}')" class="icon-btn icon-btn--danger" title="ลบ" aria-label="ลบ ${esc(a.name)}">${icon("trash")}</button>
             </div>
           </td>
         </tr>
@@ -616,16 +654,12 @@ const App = {
     if (idInput) idInput.value = "";
 
     const titleEl = document.getElementById("appointmentModalTitle");
-    if (titleEl) titleEl.textContent = "➕ เพิ่มนัดหมาย Telemed ใหม่";
+    if (titleEl) titleEl.textContent = "เพิ่มนัดหมาย Telemed ใหม่";
 
     const dateInput = document.getElementById("formDate");
     if (dateInput) dateInput.value = this.currentQueueDate || getTodayIso();
 
-    const modal = document.getElementById("appointmentModal");
-    if (modal) {
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
+    UI.openModal("appointmentModal");
   },
 
   // เปิด Modal แก้ไขนัดหมาย
@@ -637,7 +671,7 @@ const App = {
     if (idInput) idInput.value = apt.id;
 
     const titleEl = document.getElementById("appointmentModalTitle");
-    if (titleEl) titleEl.textContent = "✏️ แก้ไขข้อมูลนัดหมาย";
+    if (titleEl) titleEl.textContent = "แก้ไขข้อมูลนัดหมาย";
 
     document.getElementById("formDate").value = apt.date || "";
     document.getElementById("formName").value = apt.name || "";
@@ -651,19 +685,11 @@ const App = {
     document.getElementById("formTele").checked = apt.tele === true;
     document.getElementById("formHosxp").checked = apt.hosxp === true;
 
-    const modal = document.getElementById("appointmentModal");
-    if (modal) {
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
+    UI.openModal("appointmentModal");
   },
 
   closeAppointmentModal: function() {
-    const modal = document.getElementById("appointmentModal");
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-    }
+    UI.closeModal("appointmentModal");
   },
 
   // บันทึกฟอร์มเพิ่ม/แก้ไข
@@ -688,7 +714,7 @@ const App = {
         icon: "warning",
         title: "กรุณากรอกข้อมูลให้ครบถ้วน",
         text: "ระบุชื่อ-สกุลผู้ป่วย และวันนัดหมาย",
-        confirmButtonColor: "#0284c7"
+        confirmButtonColor: COLOR.primary
       });
       return;
     }
@@ -732,28 +758,28 @@ const App = {
       if (res && res.fromCache) {
         Swal.fire({
           icon: "warning",
-          title: "บันทึกในเครื่องแล้ว (แต่ยังไม่ลง Google Sheets)",
+          title: "บันทึกในเครื่องแล้ว แต่ยังไม่ลง Google Sheets",
           html: `
-            <div class="text-left text-xs space-y-2">
-              <p class="text-amber-800 font-bold">ข้อมูลแสดงบนหน้าเว็บแล้ว แต่ยังไม่สามารถส่งเข้า Google Sheets ได้</p>
-              <p class="text-slate-600"><strong>สาเหตุ:</strong> ${res.errorMessage ? res.errorMessage : "ยังไม่ได้ระบุ Web App URL หรือ URL ยังเชื่อมต่อไม่ได้"}</p>
-              <div class="bg-amber-50 p-3 rounded-xl border border-amber-200 mt-2">
-                <p class="font-bold text-amber-900">วิธีเปิดการเชื่อมต่อกับ Google Sheets:</p>
-                <ol class="list-decimal pl-4 space-y-1 text-slate-700 mt-1">
+            <div class="help">
+              <p class="help-error" style="color:var(--warning)">ข้อมูลแสดงบนหน้าเว็บแล้ว แต่ยังไม่สามารถส่งเข้า Google Sheets ได้</p>
+              <p><strong>สาเหตุ:</strong> ${esc(res.errorMessage ? res.errorMessage : "ยังไม่ได้ระบุ Web App URL หรือ URL ยังเชื่อมต่อไม่ได้")}</p>
+              <div class="help-box help-box--warn">
+                <div class="help-box-title">วิธีเปิดการเชื่อมต่อกับ Google Sheets</div>
+                <ol>
                   <li>เปิด Google Apps Script ในชีตของคุณ</li>
-                  <li>กด <strong>การทำให้ใช้งานได้ (Deploy)</strong> > <strong>การทำให้ใช้งานได้รายการใหม่ (New deployment)</strong></li>
+                  <li>กด <strong>การทำให้ใช้งานได้ (Deploy)</strong> &gt; <strong>การทำให้ใช้งานได้รายการใหม่ (New deployment)</strong></li>
                   <li>เลือก <strong>เว็บแอป (Web app)</strong> และตั้งสิทธิ์เข้าถึง (Who has access) เป็น <strong>ทุกคน (Anyone)</strong></li>
-                  <li>คัดลอก Web App URL มาใส่ในเมนู <strong>⚙️ ตั้งค่า</strong> มุมบนขวาของหน้าเว็บนี้ แล้วกดบันทึก</li>
+                  <li>คัดลอก Web App URL มาใส่ในเมนู <strong>ตั้งค่า</strong> มุมบนขวาของหน้าเว็บนี้ แล้วกดบันทึก</li>
                 </ol>
               </div>
             </div>
           `,
-          confirmButtonColor: "#0284c7"
+          confirmButtonColor: COLOR.primary
         });
       } else {
         Swal.fire({
           icon: "success",
-          title: "บันทึกลง Google Sheets สำเร็จ! 🎉",
+          title: "บันทึกลง Google Sheets สำเร็จ",
           text: `บันทึกข้อมูลของ ${name} เรียบร้อยแล้ว`,
           timer: 2000,
           showConfirmButton: false
@@ -764,7 +790,7 @@ const App = {
         icon: "error",
         title: "บันทึกไม่สำเร็จ",
         text: err.message,
-        confirmButtonColor: "#ef4444"
+        confirmButtonColor: COLOR.danger
       });
     }
   },
@@ -776,11 +802,10 @@ const App = {
 
     const res = await Swal.fire({
       title: "ยืนยันการยกเลิก/ลบนัดหมาย?",
-      text: `ต้องการลบนัดหมายของ ${apt.name} (HN: ${apt.hn || '-'}) ใช่หรือไม่?`,
+      text: `ต้องการลบนัดหมายของ ${apt.name} (HN: ${apt.hn || "-"}) ใช่หรือไม่?`,
       icon: "warning",
       showCancelButton: true,
-      confirmButtonColor: "#ef4444",
-      cancelButtonColor: "#64748b",
+      confirmButtonColor: COLOR.danger,
       confirmButtonText: "ลบนัดหมาย",
       cancelButtonText: "ยกเลิก"
     });
@@ -815,84 +840,78 @@ const App = {
     const container = document.getElementById("patientDetailBody");
     if (!container) return;
 
-    const statusTele = apt.tele ? 
-      `<span class="text-emerald-700 font-bold">✓ โทรนัดแล้ว (${apt.teleOperator || 'เจ้าหน้าที่'} - ${apt.teleTime || ''})</span>` :
-      `<span class="text-rose-600 font-bold">✕ ยังไม่ได้โทร</span>`;
+    const id = jsId(apt.id);
 
-    const statusHos = apt.hosxp ? 
-      `<span class="text-indigo-700 font-bold">✓ ลงบันทึก HosXP แล้ว (${apt.hosOperator || 'เจ้าหน้าที่'} - ${apt.hosTime || ''})</span>` :
-      `<span class="text-rose-600 font-bold">✕ ยังไม่ได้ลง HosXP</span>`;
+    const statusTele = apt.tele
+      ? `<div class="status-line status-line--ok">${icon("check-circle")}<div><strong>โทรนัดแล้ว</strong><small>${esc(apt.teleOperator || "เจ้าหน้าที่")} ${esc(apt.teleTime || "")}</small></div></div>`
+      : `<div class="status-line status-line--no">${icon("x-circle")}<div><strong>ยังไม่ได้โทร</strong></div></div>`;
+
+    const statusHos = apt.hosxp
+      ? `<div class="status-line status-line--ok">${icon("check-circle")}<div><strong>ลงบันทึก HosXP แล้ว</strong><small>${esc(apt.hosOperator || "เจ้าหน้าที่")} ${esc(apt.hosTime || "")}</small></div></div>`
+      : `<div class="status-line status-line--no">${icon("x-circle")}<div><strong>ยังไม่ได้ลง HosXP</strong></div></div>`;
 
     container.innerHTML = `
-      <div class="space-y-4 text-sm font-sans">
-        <div class="bg-sky-50 p-4 rounded-2xl border border-sky-100 flex justify-between items-start">
-          <div>
-            <h3 class="text-lg font-bold text-slate-900">${apt.name}</h3>
-            <div class="text-xs text-slate-500 font-mono mt-0.5">HN: <strong class="text-slate-800">${apt.hn || "-"}</strong> | เลข ปชช: ${apt.cid || "-"}</div>
-            <div class="mt-2 text-xs text-sky-800 font-medium">
-              🗓 วันนัด: <strong>${apt.thaiDate} (${apt.date})</strong>
+      <div class="detail">
+        <div class="detail-hero">
+          <div style="min-width:0">
+            <h3 class="detail-name">${esc(apt.name)}</h3>
+            <div class="detail-id">HN ${esc(apt.hn || "-")} &nbsp;|&nbsp; เลข ปชช. ${esc(apt.cid || "-")}</div>
+            <div class="detail-date">${icon("calendar", "icon--sm")}<span>วันนัด <strong>${esc(apt.thaiDate)}</strong> (${esc(apt.date)})</span></div>
+          </div>
+          <span class="badge badge--info" style="background:#fff">${esc(apt.department || "MED")}</span>
+        </div>
+
+        <div class="kv-grid">
+          <div class="kv">
+            <div class="kv-label">แพทย์ผู้นัด</div>
+            <div class="kv-value">${esc(apt.doctor || "-")}</div>
+          </div>
+          <div class="kv">
+            <div class="kv-label">เบอร์โทรศัพท์</div>
+            <div class="kv-value">
+              ${apt.phone
+                ? `<a href="tel:${esc(String(apt.phone).replace(/[^0-9]/g, ""))}" class="phone-link">${icon("phone")}<span>${esc(apt.phone)}</span></a>`
+                : `<span class="cell-muted">ไม่มีเบอร์โทร</span>`}
             </div>
           </div>
-          <span class="px-3 py-1 bg-sky-200 text-sky-900 font-bold text-xs rounded-full">${apt.department || "MED"}</span>
-        </div>
-
-        <div class="grid grid-cols-2 gap-3 text-xs">
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <span class="text-slate-400 block mb-0.5">แพทย์ผู้นัด</span>
-            <span class="font-bold text-slate-800 text-sm">${apt.doctor || "-"}</span>
-          </div>
-          <div class="bg-slate-50 p-3 rounded-xl border border-slate-100">
-            <span class="text-slate-400 block mb-0.5">เบอร์โทรศัพท์</span>
-            ${apt.phone ? `
-              <a href="tel:${apt.phone.replace(/[^0-9]/g, "")}" class="font-bold text-emerald-600 hover:underline text-sm flex items-center gap-1">
-                📞 ${apt.phone}
-              </a>
-            ` : `<span class="text-slate-400">ไม่มีเบอร์โทร</span>`}
+          ${apt.lineName ? `
+            <div class="kv span-2" style="grid-column:1/-1">
+              <div class="kv-label">ชื่อ LINE</div>
+              <div class="kv-value">${esc(apt.lineName)}</div>
+            </div>
+          ` : ""}
+          <div class="kv" style="grid-column:1/-1">
+            <div class="kv-label">หมายเหตุ / เหตุผลการนัด</div>
+            <div class="kv-value" style="font-weight:500">${esc(apt.notes || "ติดตามอาการ")}</div>
           </div>
         </div>
 
-        ${apt.lineName ? `
-          <div class="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100 text-xs">
-            <span class="text-emerald-700 font-semibold">ชื่อ Line:</span>
-            <span class="text-slate-800 ml-1 font-medium">${apt.lineName}</span>
-          </div>
-        ` : ''}
-
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 text-xs">
-          <span class="text-slate-400 block mb-1">หมายเหตุ / เหตุผลการนัด</span>
-          <p class="text-slate-700 leading-relaxed font-medium">${apt.notes || "ติดตามอาการ"}</p>
-        </div>
-
-        <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2 text-xs">
-          <div class="font-bold text-slate-700">สถานะการปฏิบัติงาน:</div>
-          <div>📞 การโทรนัด: ${statusTele}</div>
-          <div>💻 การลงบันทึก HosXP: ${statusHos}</div>
-        </div>
-
-        <div class="flex gap-2 pt-2">
-          <button onclick="App.quickToggleTele('${apt.id}', ${!apt.tele}); App.closePatientDetailModal();" class="flex-1 py-2 px-3 text-xs font-bold rounded-xl ${apt.tele ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-sm'}">
-            ${apt.tele ? 'ยกเลิกสถานะโทร' : '✓ บันทึกว่าโทรแล้ว'}
-          </button>
-          <button onclick="App.quickToggleHos('${apt.id}', ${!apt.hosxp}); App.closePatientDetailModal();" class="flex-1 py-2 px-3 text-xs font-bold rounded-xl ${apt.hosxp ? 'bg-slate-100 text-slate-600 hover:bg-slate-200' : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm'}">
-            ${apt.hosxp ? 'ยกเลิกสถานะ Hos' : '✓ บันทึกว่าลง HosXP แล้ว'}
-          </button>
+        <div class="kv">
+          <div class="kv-label" style="margin-bottom:4px">สถานะการปฏิบัติงาน</div>
+          ${statusTele}
+          ${statusHos}
         </div>
       </div>
     `;
 
-    const modal = document.getElementById("patientDetailModal");
-    if (modal) {
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
+    // ปุ่มดำเนินการด้านล่าง
+    const foot = document.getElementById("patientDetailFoot");
+    if (foot) foot.innerHTML = `
+      <button type="button" onclick="App.quickToggleTele('${id}', ${!apt.tele}); App.closePatientDetailModal();" class="btn ${apt.tele ? "btn--outlined" : "btn--success"}">
+        ${apt.tele ? icon("x") : icon("phone")}
+        <span>${apt.tele ? "ยกเลิกสถานะโทร" : "บันทึกว่าโทรแล้ว"}</span>
+      </button>
+      <button type="button" onclick="App.quickToggleHos('${id}', ${!apt.hosxp}); App.closePatientDetailModal();" class="btn ${apt.hosxp ? "btn--outlined" : "btn--filled"}">
+        ${apt.hosxp ? icon("x") : icon("monitor")}
+        <span>${apt.hosxp ? "ยกเลิกสถานะ Hos" : "บันทึกว่าลง HosXP แล้ว"}</span>
+      </button>
+    `;
+
+    UI.openModal("patientDetailModal");
   },
 
   closePatientDetailModal: function() {
-    const modal = document.getElementById("patientDetailModal");
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-    }
+    UI.closeModal("patientDetailModal");
   },
 
   // ==========================================
@@ -912,19 +931,11 @@ const App = {
     const operatorInput = document.getElementById("settingDefaultOperator");
     if (operatorInput) operatorInput.value = CONFIG.getCurrentOperator();
 
-    const modal = document.getElementById("settingsModal");
-    if (modal) {
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
-    }
+    UI.openModal("settingsModal");
   },
 
   closeSettingsModal: function() {
-    const modal = document.getElementById("settingsModal");
-    if (modal) {
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-    }
+    UI.closeModal("settingsModal");
   },
 
   saveSettings: async function(e) {
@@ -971,7 +982,7 @@ const App = {
         icon: "warning",
         title: "ยังไม่ได้ระบุ Web App URL",
         text: "กรุณาวาง URL เว็บแอปจาก Google Apps Script ก่อนทดสอบ",
-        confirmButtonColor: "#0284c7"
+        confirmButtonColor: COLOR.primary
       });
       return;
     }
@@ -981,7 +992,7 @@ const App = {
         icon: "warning",
         title: "รูปแบบ URL ไม่ถูกต้อง",
         text: "URL ของ Google Apps Script จะต้องขึ้นต้นด้วย https://script.google.com/macros/s/.../exec",
-        confirmButtonColor: "#0284c7"
+        confirmButtonColor: COLOR.primary
       });
       return;
     }
@@ -999,9 +1010,9 @@ const App = {
       if (res && res.success && !res.fromCache) {
         Swal.fire({
           icon: "success",
-          title: "เชื่อมต่อ Google Sheets สำเร็จ! 🎉",
-          text: `ดึงข้อมูลได้สำเร็จ จำนวน ${res.data ? res.data.length : 0} รายการ ระบบพร้อมบันทึกข้อมูลลงชีตแล้วครับ`,
-          confirmButtonColor: "#10b981"
+          title: "เชื่อมต่อ Google Sheets สำเร็จ",
+          text: `ดึงข้อมูลได้สำเร็จ จำนวน ${res.data ? res.data.length : 0} รายการ ระบบพร้อมบันทึกข้อมูลลงชีตแล้ว`,
+          confirmButtonColor: COLOR.success
         });
       } else {
         throw new Error(res ? res.errorMessage || res.message : "ไม่สามารถเชื่อมต่อได้");
@@ -1011,18 +1022,18 @@ const App = {
         icon: "error",
         title: "เชื่อมต่อ Google Sheets ไม่สำเร็จ",
         html: `
-          <div class="text-left text-xs space-y-2">
-            <p class="text-rose-600 font-bold">${err.message}</p>
-            <div class="bg-slate-50 p-3 rounded-lg border border-slate-200 text-slate-700">
-              <p class="font-bold mb-1">สาเหตุที่พบบ่อย:</p>
-              <ul class="list-disc pl-4 space-y-1">
-                <li>สิทธิ์เข้าถึงไม่ได้ตั้งเป็น <strong>ทุกคน (Anyone)</strong>: ใน Apps Script ให้เลือก Deploy > New deployment > Who has access เป็น <strong>Anyone</strong></li>
+          <div class="help">
+            <p class="help-error">${esc(err.message)}</p>
+            <div class="help-box">
+              <div class="help-box-title">สาเหตุที่พบบ่อย</div>
+              <ul>
+                <li>สิทธิ์เข้าถึงไม่ได้ตั้งเป็น <strong>ทุกคน (Anyone)</strong>: ใน Apps Script ให้เลือก Deploy &gt; New deployment &gt; Who has access เป็น <strong>Anyone</strong></li>
                 <li>URL ไม่ลงท้ายด้วย <code>/exec</code> (ต้องเป็น URL จากการ Deploy เป็น Web app เท่านั้น)</li>
               </ul>
             </div>
           </div>
         `,
-        confirmButtonColor: "#ef4444"
+        confirmButtonColor: COLOR.danger
       });
     }
   },
@@ -1038,7 +1049,7 @@ const App = {
         icon: "warning",
         title: "ยังไม่ได้ระบุ Token",
         text: "กรุณาวาง Channel access token ก่อนกดทดสอบ",
-        confirmButtonColor: "#0284c7"
+        confirmButtonColor: COLOR.primary
       });
       return;
     }
@@ -1046,21 +1057,23 @@ const App = {
     if (token.length <= 40) {
       Swal.fire({
         icon: "error",
-        title: "Token สั้นเกินไป!",
+        title: "Token สั้นเกินไป",
         html: `
-          <div class="text-left text-xs space-y-2">
-            <p class="text-rose-600 font-bold">Token ที่ระบุมีความยาวเพียง ${token.length} ตัวอักษร ซึ่งน่าจะเป็น "Channel Secret" ไม่ใช่ "Channel access token"</p>
-            <p><strong>วิธีแก้ไข:</strong></p>
-            <ol class="list-decimal pl-4 space-y-1">
-              <li>ไปที่ <a href="https://developers.line.biz/" target="_blank" class="text-sky-600 underline">LINE Developers Console</a></li>
-              <li>เลือก Channel ของคุณ</li>
-              <li>คลิกแท็บ <strong>Messaging API</strong> (ไม่ใช่ Basic settings)</li>
-              <li>เลื่อนลงล่างสุดตรงหัวข้อ <strong>Channel access token</strong></li>
-              <li>กดปุ่ม <strong>Issue</strong> เพื่อคัดลอก Token ยาว 170+ ตัวอักษร</li>
-            </ol>
+          <div class="help">
+            <p class="help-error">Token ที่ระบุมีความยาวเพียง ${token.length} ตัวอักษร ซึ่งน่าจะเป็น "Channel Secret" ไม่ใช่ "Channel access token"</p>
+            <div class="help-box">
+              <div class="help-box-title">วิธีแก้ไข</div>
+              <ol>
+                <li>ไปที่ <a href="https://developers.line.biz/" target="_blank" rel="noopener">LINE Developers Console</a></li>
+                <li>เลือก Channel ของคุณ</li>
+                <li>คลิกแท็บ <strong>Messaging API</strong> (ไม่ใช่ Basic settings)</li>
+                <li>เลื่อนลงล่างสุดตรงหัวข้อ <strong>Channel access token</strong></li>
+                <li>กดปุ่ม <strong>Issue</strong> เพื่อคัดลอก Token ยาว 170+ ตัวอักษร</li>
+              </ol>
+            </div>
           </div>
         `,
-        confirmButtonColor: "#0284c7"
+        confirmButtonColor: COLOR.primary
       });
       return;
     }
@@ -1077,16 +1090,16 @@ const App = {
       if (res && res.success) {
         Swal.fire({
           icon: "success",
-          title: "Token ถูกต้องและใช้งานได้!",
+          title: "Token ถูกต้องและใช้งานได้",
           text: res.message,
-          confirmButtonColor: "#10b981"
+          confirmButtonColor: COLOR.success
         });
       } else {
         Swal.fire({
           icon: "error",
           title: "ทดสอบไม่สำเร็จ",
           text: res.message || "LINE ปฏิเสธการเชื่อมต่อ กรุณาตรวจสอบว่าคัดลอก Token มาครบถ้วนหรือไม่",
-          confirmButtonColor: "#ef4444"
+          confirmButtonColor: COLOR.danger
         });
       }
     } catch (err) {
@@ -1094,7 +1107,7 @@ const App = {
         icon: "error",
         title: "เกิดข้อผิดพลาด",
         text: err.message,
-        confirmButtonColor: "#ef4444"
+        confirmButtonColor: COLOR.danger
       });
     }
   },
@@ -1109,7 +1122,7 @@ const App = {
         icon: "warning",
         title: "กรุณาระบุข้อมูลให้ครบ",
         text: "ต้องระบุทั้ง Channel Access Token และ Destination ID ก่อนทดสอบส่ง",
-        confirmButtonColor: "#0284c7"
+        confirmButtonColor: COLOR.primary
       });
       return;
     }
@@ -1129,9 +1142,9 @@ const App = {
       if (res && res.success) {
         Swal.fire({
           icon: "success",
-          title: "ส่งข้อความทดสอบสำเร็จ! 🎉",
+          title: "ส่งข้อความทดสอบสำเร็จ",
           text: "ข้อความทดสอบถูกส่งเข้ากลุ่ม LINE เรียบร้อยแล้ว กรุณาเปิดดูในแอป LINE",
-          confirmButtonColor: "#10b981"
+          confirmButtonColor: COLOR.success
         });
       } else {
         throw new Error(res.message || "ส่งไม่สำเร็จ");
@@ -1141,18 +1154,18 @@ const App = {
         icon: "error",
         title: "ส่งข้อความทดสอบไม่สำเร็จ",
         html: `
-          <div class="text-left text-xs space-y-2">
-            <p class="text-rose-600 font-bold">${err.message}</p>
-            <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-              <p class="font-bold text-slate-700">คำแนะนำในการตรวจสอบ:</p>
-              <ul class="list-disc pl-4 space-y-1 text-slate-600 mt-1">
+          <div class="help">
+            <p class="help-error">${esc(err.message)}</p>
+            <div class="help-box">
+              <div class="help-box-title">คำแนะนำในการตรวจสอบ</div>
+              <ul>
                 <li>บอท (LINE Official Account) ได้ถูก<strong>เชิญเข้ากลุ่ม LINE</strong> นั้นแล้วหรือยัง? (ถ้าบอทไม่ได้อยู่ในกลุ่ม จะส่งเข้ากลุ่มไม่ได้)</li>
                 <li>Destination ID ต้องเป็นรหัสที่ขึ้นต้นด้วย <code>C...</code> (สำหรับกลุ่ม) หรือ <code>U...</code> (สำหรับบุคคล) เท่านั้น <em>(ไม่ใช่ชื่อกลุ่ม)</em></li>
               </ul>
             </div>
           </div>
         `,
-        confirmButtonColor: "#ef4444"
+        confirmButtonColor: COLOR.danger
       });
     }
   }
