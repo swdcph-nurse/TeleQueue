@@ -1,3 +1,5 @@
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
 /**
  * app.js - Main Application Controller for TeleQueue
  *
@@ -147,6 +149,18 @@ const App = {
       }
     });
 
+    // อัปเดตชื่อหัวข้อแถบบนสุด
+    const topTitle = document.getElementById("topNavSectionTitle");
+    if (topTitle) {
+      const sectionTitles = {
+        dashboard: "ภาพรวมระบบ (Dashboard)",
+        today: "รายการนัดประจำวัน",
+        calendar: "ปฏิทินนัดหมาย",
+        manage: "จัดการนัดหมายทั้งหมด"
+      };
+      topTitle.textContent = sectionTitles[tabName] || tabName;
+    }
+
     // แสดง/ซ่อน Section
     const tabs = ["dashboard", "calendar", "today", "manage"];
     tabs.forEach(t => {
@@ -221,6 +235,10 @@ const App = {
   // ==========================================
   renderDashboard: function() {
     const stats = DataStore.calculateStats();
+    const pBar = document.getElementById("heroProgressBar");
+    if (pBar) pBar.style.width = (stats.todayCount ? Math.round(stats.completedToday / stats.todayCount * 100) : 0) + "%";
+    const pTxt = document.getElementById("heroProgressText");
+    if (pTxt) pTxt.textContent = `${stats.completedToday} จาก ${stats.todayCount} ราย`;
 
     const dateEl = document.getElementById("dashboardDate");
     if (dateEl) dateEl.textContent = `ข้อมูลประจำวันที่ ${formatThaiDateDisplay(getTodayIso())}`;
@@ -256,10 +274,15 @@ const App = {
     this.renderDepartmentStats(stats.deptStats);
   },
 
-  // แจ้งเตือนรายการที่ยังดำเนินการไม่ครบ
-  renderIncompleteAlerts: function(incompleteList) {
-    const container = document.getElementById("incompleteAlertsContainer");
-    if (!container) return;
+  // ป้ายสถานะ + ขั้นตอน (ใช้ร่วมกันทุกหน้า)
+  _badge: function(a) {
+    const k = a.tele && a.hosxp ? ["done", "check", "ครบถ้วน"] : (a.tele || a.hosxp) ? ["part", "clock", "บางส่วน"] : ["wait", "alertTriangle", "รอเริ่ม"];
+    return `<span class="chip chip-${k[0]}">${Icons[k[1]]("w-3.5 h-3.5")}${k[2]}</span>`;
+  },
+  _steps: function(a) {
+    const t = (f, on, icon, title, doneTxt, op) => `<label class="step"><input type="checkbox" ${on ? "checked" : ""} onchange="App.handleCheckboxChange('${a.id}','${f}',this.checked)"><span class="step-ic">${Icons[icon]("w-5 h-5")}</span><span class="step-tx"><b>${title}</b><small>${on ? doneTxt + (op ? " · " + esc(op) : "") : "ยังไม่ดำเนินการ"}</small></span></label>`;
+    return `<div class="steps">${t("tele", a.tele, "phone", "โทรนัด", "โทรแล้ว", a.teleOperator)}${t("hosxp", a.hosxp, "fileText", "บันทึก HosXP", "บันทึกแล้ว", a.hosOperator)}</div>`;
+  },
 
     if (!incompleteList || incompleteList.length === 0) {
       container.innerHTML = `
@@ -454,8 +477,18 @@ const App = {
         </tr>
       `;
     }).join("");
+  },
 
-    container.innerHTML = rows;
+  // เลื่อนวันในหน้าคิว +1 / -1
+  navigateQueueDate: function(delta) {
+    const current = this.currentQueueDate || getTodayIso();
+    const d = new Date(current);
+    d.setDate(d.getDate() + delta);
+    const iso = d.toISOString().substring(0, 10);
+    this.currentQueueDate = iso;
+    const queueInput = document.getElementById("queueDateInput");
+    if (queueInput) queueInput.value = iso;
+    this.renderTodayQueue();
   },
 
   // เปลี่ยนวันในหน้าคิว
@@ -850,6 +883,7 @@ const App = {
       ? `<div class="status-line status-line--ok">${icon("check-circle")}<div><strong>ลงบันทึก HosXP แล้ว</strong><small>${esc(apt.hosOperator || "เจ้าหน้าที่")} ${esc(apt.hosTime || "")}</small></div></div>`
       : `<div class="status-line status-line--no">${icon("x-circle")}<div><strong>ยังไม่ได้ลง HosXP</strong></div></div>`;
 
+    const tel = apt.phone ? String(apt.phone).replace(/[^0-9]/g, "") : "";
     container.innerHTML = `
       <div class="detail">
         <div class="detail-hero">

@@ -2,6 +2,21 @@
  * data.js - Data models, initial snapshot from Google Sheets, normalization and stats helpers
  */
 
+// แปลงชื่อแผนกให้อยู่ใน 8 แผนกมาตรฐาน
+function normalizeDepartment(raw) {
+  if (!raw) return "อายุรกรรมทั่วไป";
+  var s = String(raw).trim().toLowerCase();
+  if (s === "med" || (s.includes("อายุรกรรม") && !s.includes("มะเร็ง"))) return "อายุรกรรมทั่วไป";
+  if (s.includes("มะเร็ง") || s.includes("onco")) return "อายุรกรรมมะเร็ง";
+  if (s === "sx" || s === "sx." || s.includes("ศัลยกรรม") || s.includes("surgery")) return "ศัลยกรรมทั่วไป";
+  if (s.includes("ortho") || s.includes("กระดูก") || s.includes("ออร์โธ")) return "ออร์โธปิดิกส์";
+  if (s.includes("ob") || s.includes("สูติ") || s.includes("นรีเวช")) return "สูติ-นรีเวช";
+  if (s === "ped" || s.includes("กุมาร") || s.includes("เด็ก")) return "กุมารเวชกรรม";
+  if (s.includes("eye") || s.includes("ตา") || s.includes("จักษุ")) return "จักษุ";
+  if (s.includes("ent") || s.includes("โสต") || s.includes("หู") || s.includes("คอ") || s.includes("จมูก")) return "โสต ศอ นาสิก";
+  return raw.trim();
+}
+
 // ฟังก์ชันแปลงวันที่ใดๆ ให้เป็น ISO YYYY-MM-DD
 function normalizeDateStr(raw) {
   if (!raw) return "";
@@ -114,7 +129,7 @@ function parseInitialSnapshot() {
       name: item.name,
       cid: item.cid || "",
       hn: item.hn || "",
-      department: item.department || "",
+      department: normalizeDepartment(item.department),
       doctor: item.doctor || "",
       phone: item.phone || "",
       lineName: item.lineName || "",
@@ -175,6 +190,7 @@ const DataStore = {
       id: "APT-" + Date.now(),
       date: isoDate,
       thaiDate: formatThaiDateDisplay(isoDate),
+      department: normalizeDepartment(apt.department),
       tele: apt.tele === true,
       hosxp: apt.hosxp === true,
       moph: apt.moph === true,
@@ -196,6 +212,9 @@ const DataStore = {
         updatedApt.date = normalizeDateStr(updatedApt.date);
         updatedApt.thaiDate = formatThaiDateDisplay(updatedApt.date);
       }
+      if (updatedApt.department) {
+        updatedApt.department = normalizeDepartment(updatedApt.department);
+      }
       this.appointments[idx] = { ...this.appointments[idx], ...updatedApt };
       this.saveToStorage();
       return this.appointments[idx];
@@ -214,7 +233,8 @@ const DataStore = {
     this.appointments = list.map((a, idx) => ({
       ...a,
       id: a.id || ("APT-" + (a.rowIndex || idx + 3)),
-      thaiDate: formatThaiDateDisplay(a.date)
+      thaiDate: formatThaiDateDisplay(a.date),
+      department: normalizeDepartment(a.department)
     }));
     this.saveToStorage();
   },
@@ -256,10 +276,13 @@ const DataStore = {
     // ยังไม่เริ่ม (แดง)
     const statusPending = all.filter(a => !a.tele && !a.hosxp).length;
 
-    // 7. สรุปตามแผนก
+    // 7. สรุปตามแผนก (ครอบคลุมทั้ง 8 แผนก)
     const deptStats = {};
+    if (window.CONFIG && Array.isArray(window.CONFIG.DEPARTMENTS)) {
+      window.CONFIG.DEPARTMENTS.forEach(dep => { deptStats[dep] = 0; });
+    }
     all.forEach(a => {
-      const d = (a.department || "ไม่ระบุ").toUpperCase();
+      const d = normalizeDepartment(a.department);
       deptStats[d] = (deptStats[d] || 0) + 1;
     });
 

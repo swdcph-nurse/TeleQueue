@@ -586,6 +586,21 @@ code { font-family: var(--mono); font-size: 0.92em; background: var(--surface-va
   border: 1px solid var(--outline-var); border-radius: var(--r-sm); background: var(--surface-low);
   font: 400 12px/1.65 var(--mono); color: var(--on-surface);
 }
+@media (min-width:768px){.hero{grid-template-columns:1fr 1fr;padding:32px}.hero-n b{font-size:96px}}
+/* >= 1024px: expanded drawer */
+@media (min-width:1024px){
+  .nav{width:280px;align-items:stretch;padding:20px 12px;gap:4px}
+  .main{margin-left:280px}
+  .nav-brand{display:flex;align-items:center;gap:12px;padding:0 12px 16px}
+  .nav-brand div{display:grid}.nav-brand b{font-size:18px}.nav-brand small{font-size:12px}
+  .nav-i{flex-direction:row;height:56px;gap:12px;padding:0 16px;border-radius:28px;font-size:14px}
+  .nav-ind{width:auto;height:auto;background:none!important}
+  .nav-i:hover{background:rgba(21,29,29,.06)}
+  .nav-i.is-active{background:var(--primary-c);color:var(--on-primary-c)}
+  .nav-foot{display:block;margin-top:auto;padding:12px;border-radius:var(--r-m);background:var(--sc)}
+  .nav-foot b{display:block;font-size:12px}.nav-foot small{font-size:11px;word-break:break-all}
+}
+@media (max-width:380px){.steps{grid-template-columns:1fr}.stats b{font-size:24px}.meter{grid-template-columns:88px 1fr 28px}}
 
 /* ========================================================================== */
 /* 9. Modals                                                                  */
