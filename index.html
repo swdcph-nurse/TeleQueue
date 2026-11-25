@@ -592,6 +592,19 @@
         <div class="dialog-body">
           <div class="form-stack">
 
+            <div class="tile" id="autoStatusPanel">
+              <div class="tile-head" style="font-size:13px">
+                <svg class="icon" aria-hidden="true"><use href="#i-clock"></use></svg>
+                <span>แจ้งเตือนอัตโนมัติ LINE ทุกวัน</span>
+                <span id="autoStatusBadge" class="badge badge--info" style="margin-left:auto">กำลังตรวจสอบ</span>
+              </div>
+              <p id="autoStatusText" style="margin:8px 0 10px">กำลังโหลดสถานะจากเซิร์ฟเวอร์...</p>
+              <button type="button" class="btn btn--text btn--sm" onclick="App.setupTriggerFromSettings()">
+                <svg class="icon" aria-hidden="true"><use href="#i-refresh"></use></svg>
+                <span>ตั้ง/ตรวจสอบเวลาส่งอัตโนมัติ</span>
+              </button>
+            </div>
+
             <div class="field">
               <div class="label-row">
                 <label class="label" for="settingGasUrl">URL เว็บแอป Google Apps Script</label>
@@ -619,7 +632,7 @@
                 </button>
               </div>
               <input type="password" id="settingLineToken" class="input mono" placeholder="Channel access token (ยาว 170+ ตัวอักษร)" style="font-size:13px" autocomplete="off">
-              <p class="hint hint--warn">ต้องเป็น Channel access token (long-lived) จากแท็บ Messaging API เท่านั้น ไม่ใช่ Channel Secret 32 ตัวอักษร</p>
+              <p class="hint hint--warn" id="tokenHint">ต้องเป็น Channel access token (long-lived) จากแท็บ Messaging API เท่านั้น ไม่ใช่ Channel Secret 32 ตัวอักษร</p>
             </div>
 
             <div class="field">
@@ -631,7 +644,7 @@
                 </button>
               </div>
               <input type="text" id="settingLineGroupId" class="input mono" placeholder="เช่น C8d1f2a34b5..." style="font-size:13px" autocomplete="off">
-              <p class="hint">ต้องเป็นรหัสที่ขึ้นต้นด้วย <strong>C</strong> (Group ID) หรือ <strong>U</strong> (User ID) และบอทต้องอยู่ในกลุ่มแล้ว</p>
+              <p class="hint">ค่า LINE ทั้งสองช่องบันทึกไว้ที่เซิร์ฟเวอร์ ใช้ร่วมกันทุกเครื่อง ตั้งครั้งเดียวพอ<br>ต้องเป็นรหัสที่ขึ้นต้นด้วย <strong>C</strong> (Group ID) หรือ <strong>U</strong> (User ID) และบอทต้องอยู่ในกลุ่มแล้ว</p>
             </div>
 
             <div class="field">

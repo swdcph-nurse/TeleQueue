@@ -32,6 +32,9 @@ const App = {
     // เริ่มต้น DataStore
     DataStore.init();
 
+    // ย้ายค่า LINE เดิมที่เคยตั้งไว้ในเครื่องนี้ขึ้นเซิร์ฟเวอร์ (ครั้งเดียว) โดยไม่บล็อกหน้าจอ
+    this.migrateLegacyLineSettings();
+
     // ผูก Event Listeners
     this.bindEvents();
 
@@ -947,6 +950,8 @@ const App = {
   // ==========================================
   // Settings Modal
   // ==========================================
+  serverSettings: null,
+
   openSettingsModal: function() {
     const gasInput = document.getElementById("settingGasUrl");
     if (gasInput) gasInput.value = CONFIG.getGasUrl();
@@ -954,21 +959,110 @@ const App = {
     const sheetInput = document.getElementById("settingSheetName");
     if (sheetInput) sheetInput.value = CONFIG.getSheetName();
 
-    const lineCfg = CONFIG.getLineConfig();
+    // Token / Destination ID เก็บกลางที่เซิร์ฟเวอร์ — โหลดมาแสดงหลังเปิดหน้าต่าง
     const tokenInput = document.getElementById("settingLineToken");
-    if (tokenInput) tokenInput.value = lineCfg.token;
-
+    if (tokenInput) { tokenInput.value = ""; tokenInput.placeholder = "กำลังโหลดจากเซิร์ฟเวอร์..."; }
     const groupInput = document.getElementById("settingLineGroupId");
-    if (groupInput) groupInput.value = lineCfg.groupId;
+    if (groupInput) groupInput.value = "";
 
     const operatorInput = document.getElementById("settingDefaultOperator");
     if (operatorInput) operatorInput.value = CONFIG.getCurrentOperator();
 
     UI.openModal("settingsModal");
+    this.loadServerSettings(true);
   },
 
   closeSettingsModal: function() {
     UI.closeModal("settingsModal");
+  },
+
+  // แสดงสถานะการแจ้งเตือนอัตโนมัติจากข้อมูลบนเซิร์ฟเวอร์
+  renderAutoStatus: function(st, errorMsg) {
+    const badge = document.getElementById("autoStatusBadge");
+    const text = document.getElementById("autoStatusText");
+    if (!badge || !text) return;
+    const setBadge = (cls, label) => { badge.className = "badge " + cls; badge.textContent = label; };
+
+    if (errorMsg) {
+      setBadge("badge--error", "เชื่อมต่อไม่ได้");
+      text.textContent = "ดึงการตั้งค่าจากเซิร์ฟเวอร์ไม่ได้: " + errorMsg;
+      return;
+    }
+    const hh = String(st.reminderHour == null ? 8 : st.reminderHour).padStart(2, "0");
+    const lines = [];
+    if (!st.hasLineToken || !st.lineDestinationId) {
+      setBadge("badge--warning", "ยังตั้งค่าไม่ครบ");
+      lines.push("ยังไม่ได้ตั้ง LINE Token และ Destination ID กรอกแล้วกดบันทึกครั้งเดียว ทุกเครื่องจะใช้ร่วมกัน");
+    } else if (!st.trigger || !st.trigger.active) {
+      setBadge("badge--warning", "ยังไม่ตั้งเวลา");
+      lines.push("ยังไม่มีตัวตั้งเวลาส่งอัตโนมัติ กดปุ่มด้านล่างเพื่อตั้งเวลา" + (st.trigger && st.trigger.error ? " (" + st.trigger.error + ")" : ""));
+    } else {
+      setBadge("badge--success", "เปิดใช้งาน");
+      lines.push("ส่งอัตโนมัติทุกวันประมาณ " + hh + ":00 น. (คลาดเคลื่อนได้ราว 15 นาที)");
+    }
+    const last = st.lastDailyRun;
+    if (last && last.time) {
+      lines.push("ส่งอัตโนมัติครั้งล่าสุด: " + last.time + " — " + (last.success ? "สำเร็จ" : "ไม่สำเร็จ") + " (" + last.message + ")");
+      if (!last.success) setBadge("badge--error", "ครั้งล่าสุดล้มเหลว");
+    } else {
+      lines.push("ยังไม่มีประวัติการส่งอัตโนมัติ");
+    }
+    text.textContent = lines.join("\n");
+    text.style.whiteSpace = "pre-line";
+  },
+
+  // โหลดการตั้งค่ากลางจากเซิร์ฟเวอร์ (fillForm = เติมลงฟอร์ม)
+  loadServerSettings: async function(fillForm) {
+    if (!ApiService.hasGasUrl()) {
+      this.renderAutoStatus(null, "ยังไม่ได้ตั้งค่า URL เว็บแอป");
+      return null;
+    }
+    try {
+      const st = await ApiService.getSettings();
+      this.serverSettings = st;
+      if (fillForm) {
+        const tokenInput = document.getElementById("settingLineToken");
+        if (tokenInput) {
+          tokenInput.value = "";
+          tokenInput.placeholder = st.hasLineToken
+            ? "บันทึกแล้ว " + st.lineTokenPreview + " (เว้นว่างไว้ = ใช้ค่าเดิม)"
+            : "Channel access token (ยาว 170+ ตัวอักษร)";
+        }
+        const groupInput = document.getElementById("settingLineGroupId");
+        if (groupInput) groupInput.value = st.lineDestinationId || "";
+        const sheetInput = document.getElementById("settingSheetName");
+        if (sheetInput && !sheetInput.value && st.sheetName) sheetInput.value = st.sheetName;
+      }
+      this.renderAutoStatus(st);
+      return st;
+    } catch (err) {
+      this.serverSettings = null;
+      const tokenInput = document.getElementById("settingLineToken");
+      if (tokenInput) tokenInput.placeholder = "Channel access token (ยาว 170+ ตัวอักษร)";
+      this.renderAutoStatus(null, err.message);
+      return null;
+    }
+  },
+
+  // ย้ายค่า LINE ที่เคยเก็บไว้ในเครื่องนี้ขึ้นเซิร์ฟเวอร์ครั้งเดียว (ถ้าเซิร์ฟเวอร์ยังไม่มี)
+  migrateLegacyLineSettings: async function() {
+    const legacy = CONFIG.getLegacyLineConfig();
+    if (!legacy.token && !legacy.groupId) return;
+    if (!ApiService.hasGasUrl()) return;
+    try {
+      const st = await ApiService.getSettings();
+      const payload = {};
+      if (legacy.token && !st.hasLineToken) payload.lineChannelAccessToken = legacy.token;
+      if (legacy.groupId && !st.lineDestinationId) payload.lineDestinationId = legacy.groupId;
+      if (Object.keys(payload).length) {
+        await ApiService.saveSettingsToGas(payload);
+        console.info("[Settings] ย้ายค่า LINE จากเครื่องนี้ขึ้นเซิร์ฟเวอร์แล้ว");
+      }
+      // ค่าบนเซิร์ฟเวอร์ครบแล้ว ลบสำเนาในเครื่องทิ้ง
+      CONFIG.clearLegacyLineConfig();
+    } catch (err) {
+      console.warn("[Settings] ย้ายค่า LINE ขึ้นเซิร์ฟเวอร์ไม่สำเร็จ (จะลองใหม่ครั้งหน้า):", err.message);
+    }
   },
 
   saveSettings: async function(e) {
@@ -982,32 +1076,60 @@ const App = {
 
     CONFIG.setGasUrl(gasUrl);
     CONFIG.setSheetName(sheetName);
-    CONFIG.setLineConfig(lineToken, lineGroupId);
     if (opName) CONFIG.setCurrentOperator(opName);
     this.initOperatorDisplay();
 
-    // ถ้ามี GAS URL ให้ส่งการตั้งค่าไปบันทึกใน Script Properties
-    if (gasUrl) {
-      try {
-        await ApiService.saveSettingsToGas({
-          sheetName: sheetName,
-          lineChannelAccessToken: lineToken,
-          lineDestinationId: lineGroupId
-        });
-      } catch (err) {
-        console.warn("Could not save settings to GAS backend directly:", err);
-      }
+    if (!gasUrl) {
+      this.closeSettingsModal();
+      Swal.fire({ icon: "info", title: "บันทึกการตั้งค่าในเครื่องแล้ว", text: "ยังไม่ได้ระบุ URL เว็บแอป จึงยังไม่ได้บันทึกค่า LINE", confirmButtonColor: COLOR.primary });
+      return;
     }
 
-    this.closeSettingsModal();
-    this.syncWithGoogleSheets();
+    Swal.fire({ title: "กำลังบันทึกลงเซิร์ฟเวอร์...", allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+    try {
+      const res = await ApiService.saveSettingsToGas({
+        sheetName: sheetName,
+        lineChannelAccessToken: lineToken,
+        lineDestinationId: lineGroupId
+      });
+      CONFIG.clearLegacyLineConfig();
+      this.serverSettings = res.settings || null;
+      this.closeSettingsModal();
+      this.syncWithGoogleSheets();
 
-    Swal.fire({
-      icon: "success",
-      title: "บันทึกการตั้งค่าเรียบร้อย",
-      timer: 1500,
-      showConfirmButton: false
-    });
+      const warn = res.triggerError;
+      Swal.fire({
+        icon: warn ? "warning" : "success",
+        title: warn ? "บันทึกแล้ว แต่ตั้งเวลาส่งอัตโนมัติไม่สำเร็จ" : "บันทึกการตั้งค่าเรียบร้อย",
+        text: warn
+          ? warn + " — ใน Apps Script ให้รันฟังก์ชัน setDailyTriggerAt0800 หนึ่งครั้งเพื่ออนุญาตสิทธิ์"
+          : (res.message || "ทุกเครื่องใช้ค่าชุดเดียวกัน และระบบจะส่งแจ้งเตือนอัตโนมัติทุกวัน"),
+        confirmButtonColor: COLOR.primary
+      });
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "บันทึกไม่สำเร็จ",
+        html: `<div class="help"><p class="help-error">${esc(err.message)}</p><p>ค่ายังไม่ได้ถูกบันทึกบนเซิร์ฟเวอร์ ตรวจสอบแล้วลองบันทึกอีกครั้ง หากเพิ่งแก้ไฟล์ Code.gs ต้อง Deploy &gt; New version ด้วย</p></div>`,
+        confirmButtonColor: COLOR.danger
+      });
+    }
+  },
+
+  // ตั้ง/ตรวจสอบ Trigger ส่งอัตโนมัติ
+  setupTriggerFromSettings: async function() {
+    try {
+      const res = await ApiService.setupDailyTrigger();
+      Swal.fire({ icon: "success", title: "ตั้งเวลาส่งอัตโนมัติแล้ว", text: res.message, confirmButtonColor: COLOR.success });
+    } catch (err) {
+      Swal.fire({
+        icon: "error",
+        title: "ตั้งเวลาไม่สำเร็จ",
+        text: err.message + " — ใน Apps Script ให้รันฟังก์ชัน setDailyTriggerAt0800 หนึ่งครั้งเพื่ออนุญาตสิทธิ์ แล้ว Deploy เวอร์ชันใหม่",
+        confirmButtonColor: COLOR.danger
+      });
+    }
+    this.loadServerSettings(false);
   },
 
   // ทดสอบการเชื่อมต่อกับ Google Apps Script Web App
@@ -1048,7 +1170,7 @@ const App = {
         CONFIG.setSheetName(sheetName);
         try {
           await ApiService.saveSettingsToGas({ sheetName: sheetName });
-        } catch (e) {}
+        } catch (e) { console.warn("save sheetName failed:", e.message); }
       }
       const res = await ApiService.request("getAll");
       if (res && res.success && !res.fromCache) {
@@ -1106,11 +1228,9 @@ const App = {
 
   // ทดสอบ LINE Token จากหน้าต่างตั้งค่า
   testLineTokenFromSettings: async function() {
-    let token = document.getElementById("settingLineToken").value.trim();
-    if (!token) {
-      token = CONFIG.getLineConfig().token;
-    }
-    if (!token) {
+    const token = document.getElementById("settingLineToken").value.trim();
+    const hasStored = !!(this.serverSettings && this.serverSettings.hasLineToken);
+    if (!token && !hasStored) {
       Swal.fire({
         icon: "warning",
         title: "ยังไม่ได้ระบุ Token",
@@ -1120,7 +1240,7 @@ const App = {
       return;
     }
 
-    if (token.length <= 40) {
+    if (token && token.length <= 40) {
       Swal.fire({
         icon: "error",
         title: "Token สั้นเกินไป",
@@ -1180,10 +1300,13 @@ const App = {
 
   // ทดสอบส่งข้อความจริงเข้ากลุ่ม LINE
   sendTestMessageFromSettings: async function() {
-    const token = document.getElementById("settingLineToken").value.trim() || CONFIG.getLineConfig().token;
-    const groupId = document.getElementById("settingLineGroupId").value.trim() || CONFIG.getLineConfig().groupId;
+    const token = document.getElementById("settingLineToken").value.trim();
+    const groupId = document.getElementById("settingLineGroupId").value.trim();
+    const st = this.serverSettings || {};
+    const hasToken = !!(token || st.hasLineToken);
+    const hasDest = !!(groupId || st.lineDestinationId);
 
-    if (!token || !groupId) {
+    if (!hasToken || !hasDest) {
       Swal.fire({
         icon: "warning",
         title: "กรุณาระบุข้อมูลให้ครบ",
@@ -1193,9 +1316,6 @@ const App = {
       return;
     }
 
-    // บันทึกลง config ก่อนส่ง
-    CONFIG.setLineConfig(token, groupId);
-
     Swal.fire({
       title: "กำลังส่งข้อความทดสอบ...",
       text: "กำลังส่งข้อความเข้ากลุ่ม LINE ปลายทาง",
@@ -1204,7 +1324,7 @@ const App = {
     });
 
     try {
-      const res = await ApiService.sendTestLineMessage();
+      const res = await ApiService.sendTestLineMessage(token, groupId);
       if (res && res.success) {
         Swal.fire({
           icon: "success",

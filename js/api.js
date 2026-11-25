@@ -157,39 +157,66 @@ const ApiService = {
     return res;
   },
 
-  // ส่งแจ้งเตือน LINE ประจำวัน
-  sendDailyLineNotification: async function(forceSend = false) {
-    const lineCfg = CONFIG.getLineConfig();
-    return await this.request("sendLineNotification", {
-      forceSend: forceSend,
-      lineChannelAccessToken: lineCfg.token,
-      lineDestinationId: lineCfg.groupId
-    });
+  // เรียก GAS แบบเข้มงวด: ไม่ใช้ข้อมูลจำลองในเครื่อง ถ้าไม่สำเร็จจะ throw เสมอ
+  requestStrict: async function(action, data = null) {
+    const gasUrl = CONFIG.getGasUrl();
+    if (!gasUrl) throw new Error("ยังไม่ได้ตั้งค่า URL เว็บแอป Google Apps Script");
+    let response;
+    try {
+      response = await fetch(gasUrl, {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify({ action: action, data: data })
+      });
+    } catch (err) {
+      throw new Error("เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ (" + err.message + ")");
+    }
+    if (!response.ok) throw new Error("เซิร์ฟเวอร์ตอบกลับผิดพลาด HTTP " + response.status);
+    let result;
+    try {
+      result = await response.json();
+    } catch (err) {
+      throw new Error("เซิร์ฟเวอร์ตอบกลับในรูปแบบที่ไม่ถูกต้อง (ตรวจสอบว่า Deploy เป็นเวอร์ชันล่าสุดและเปิดให้ Anyone เข้าถึง)");
+    }
+    if (!result || !result.success) {
+      throw new Error((result && (result.message || result.error)) || "เซิร์ฟเวอร์ไม่ยอมรับคำขอ");
+    }
+    return result;
   },
 
-  // ส่งข้อความทดสอบธรรมดาเข้า LINE
-  sendTestLineMessage: async function() {
-    const lineCfg = CONFIG.getLineConfig();
-    return await this.request("sendTestMessage", {
-      lineChannelAccessToken: lineCfg.token,
-      lineDestinationId: lineCfg.groupId
-    });
+  // อ่านการตั้งค่ากลางจากเซิร์ฟเวอร์ (ใช้ร่วมกันทุกเครื่อง)
+  getSettings: async function() {
+    const res = await this.requestStrict("getSettings");
+    return res.data;
   },
 
-  // ทดสอบความถูกต้องของ LINE Channel Access Token
-  testLineToken: async function(token) {
-    const t = token || CONFIG.getLineConfig().token;
-    return await this.request("testLineToken", { token: t });
-  },
-
-  // ตั้งค่า Trigger แจ้งเตือนอัตโนมัติใน Google Apps Script
-  setupDailyTrigger: async function() {
-    return await this.request("setupDailyTrigger", {});
-  },
-
-  // บันทึกการตั้งค่าลง Google Apps Script
+  // บันทึกการตั้งค่ากลางลงเซิร์ฟเวอร์ (throw ถ้าไม่สำเร็จ)
   saveSettingsToGas: async function(settings) {
-    return await this.request("saveSettings", settings);
+    return await this.requestStrict("saveSettings", settings);
+  },
+
+  // ส่งแจ้งเตือน LINE ประจำวัน โดยใช้ค่าที่บันทึกไว้บนเซิร์ฟเวอร์
+  sendDailyLineNotification: async function(forceSend = false) {
+    return await this.request("sendLineNotification", { forceSend: forceSend });
+  },
+
+  // ส่งข้อความทดสอบ (ถ้าไม่ระบุค่า จะใช้ค่าที่บันทึกไว้บนเซิร์ฟเวอร์)
+  sendTestLineMessage: async function(token, groupId) {
+    return await this.requestStrict("sendTestMessage", {
+      lineChannelAccessToken: token || "",
+      lineDestinationId: groupId || ""
+    });
+  },
+
+  // ทดสอบ LINE Channel Access Token (ถ้าไม่ระบุ จะใช้ค่าที่บันทึกไว้บนเซิร์ฟเวอร์)
+  testLineToken: async function(token) {
+    return await this.requestStrict("testLineToken", { token: token || "" });
+  },
+
+  // ตั้ง/ตรวจสอบ Trigger แจ้งเตือนอัตโนมัติใน Google Apps Script
+  setupDailyTrigger: async function() {
+    return await this.requestStrict("setupDailyTrigger", {});
   }
 };
 

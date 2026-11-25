@@ -1081,68 +1081,209 @@ function buildTelemedFlexMessage(patients, thaiDateStr, appUrl) {
 
 /**
  * =========================================================================
- * ฟังก์ชันตั้งเวลาอัตโนมัติ 08:00 น. (Automatic Daily 08:00 AM Trigger)
+ * ตั้งเวลาแจ้งเตือนอัตโนมัติ (Time-driven Trigger) และการตั้งค่ากลาง
  * =========================================================================
+ * หลักการ: ค่า LINE Token / Destination ID / ชื่อแผ่นงาน เก็บไว้ที่ Script Properties
+ * "ที่เดียว" (ระบบกลาง) ทุกเครื่องที่เปิดเว็บจะอ่านค่าชุดเดียวกัน และ Trigger 08:00
+ * ก็อ่านค่าชุดเดียวกันนี้ในการส่งแจ้งเตือน
  */
+
+var DAILY_TRIGGER_HANDLER = "dailyTriggerHandler";
+var DEFAULT_REMINDER_HOUR = 8;
+var LINE_ID_PATTERN = /^[URC][0-9a-zA-Z]{32}$/;
+
+function getReminderHour() {
+  var h = parseInt(getConfig().autoReminderHour, 10);
+  return (isNaN(h) || h < 0 || h > 23) ? DEFAULT_REMINDER_HOUR : h;
+}
+
+function getDailyTriggers_() {
+  var all = ScriptApp.getProjectTriggers();
+  var result = [];
+  for (var i = 0; i < all.length; i++) {
+    if (all[i].getHandlerFunction() === DAILY_TRIGGER_HANDLER) result.push(all[i]);
+  }
+  return result;
+}
 
 /**
- * 🌟 คลิกฟังก์ชันนี้แล้วกด "เรียกใช้" (Run) ใน Apps Script เพื่อตั้งเวลาแจ้งเตือนทุกวัน เวลา 08:00 น.
+ * สถานะตัวตั้งเวลา: เปิดอยู่หรือไม่ และตั้งไว้กี่โมง
+ */
+function getTriggerStatus() {
+  try {
+    var list = getDailyTriggers_();
+    return { active: list.length > 0, count: list.length, hour: getReminderHour(), error: "" };
+  } catch (err) {
+    return { active: false, count: 0, hour: getReminderHour(), error: String(err) };
+  }
+}
+
+/**
+ * ลบ Trigger เดิมของระบบนี้ทั้งหมด แล้วสร้างใหม่ 1 ตัว ทุกวันเวลา reminderHour (เขตเวลาไทย)
+ * หมายเหตุ: Google ไม่รับประกันเวลาเป๊ะ จะรันภายในช่วงประมาณ +-15 นาทีจากเวลาที่ตั้ง
  */
 function setDailyTriggerAt0800() {
-  // 1. ลบ Trigger เดิมที่มีชื่อซ้ำ
-  var triggers = ScriptApp.getProjectTriggers();
-  for (var i = 0; i < triggers.length; i++) {
-    if (triggers[i].getHandlerFunction() === "dailyTriggerHandler") {
-      ScriptApp.deleteTrigger(triggers[i]);
-    }
+  var hour = getReminderHour();
+  var existing = getDailyTriggers_();
+  for (var i = 0; i < existing.length; i++) {
+    ScriptApp.deleteTrigger(existing[i]);
   }
 
-  // 2. สร้าง Trigger ใหม่ ทุกวัน เวลา 08:00 น. (เขตเวลาประเทศไทย)
-  ScriptApp.newTrigger("dailyTriggerHandler")
+  ScriptApp.newTrigger(DAILY_TRIGGER_HANDLER)
     .timeBased()
     .everyDays(1)
-    .atHour(8)
+    .atHour(hour)
+    .nearMinute(5)
     .inTimezone("Asia/Bangkok")
     .create();
 
-  Logger.log("✅ ตั้งเวลาแจ้งเตือน LINE อัตโนมัติทุกวัน เวลา 08:00 น. สำเร็จแล้ว");
-  return {
-    success: true,
-    message: "ตั้งเวลาแจ้งเตือนอัตโนมัติทุกวัน เวลา 08:00 น. เรียบร้อยแล้ว"
-  };
+  var msg = "ตั้งเวลาแจ้งเตือนอัตโนมัติทุกวัน เวลาประมาณ " + (hour < 10 ? "0" : "") + hour + ":00 น. เรียบร้อยแล้ว";
+  Logger.log(msg);
+  return { success: true, message: msg, trigger: getTriggerStatus() };
 }
 
 /**
- * ฟังก์ชันที่ถูกเรียกโดยอัตโนมัติทุกวัน เวลา 08:00 น.
+ * ตรวจว่ามี Trigger ถูกต้อง 1 ตัวหรือไม่ ถ้าไม่มี (หรือซ้ำ) จะสร้างให้ใหม่โดยอัตโนมัติ
+ * เรียกทุกครั้งที่บันทึกการตั้งค่า เพื่อไม่ต้องไปกดตั้งเองใน Apps Script
  */
-function dailyTriggerHandler() {
-  Logger.log("⏰ เริ่มทำงาน: แจ้งเตือนนัด Telemed ประจำวัน 08:00 น.");
+function ensureDailyTrigger() {
+  var status = getTriggerStatus();
+  if (status.error) throw new Error("ตรวจสอบ Trigger ไม่ได้: " + status.error);
+  if (status.count === 1) return { success: true, changed: false, trigger: status, message: "ตัวตั้งเวลาทำงานอยู่แล้ว" };
+  var res = setDailyTriggerAt0800();
+  res.changed = true;
+  return res;
+}
+
+function recordDailyRun_(result) {
   try {
-    var result = sendDailyLineNotification(false);
-    Logger.log("ผลการส่งแจ้งเตือน: " + JSON.stringify(result));
-  } catch (err) {
-    Logger.log("เกิดข้อผิดพลาด: " + err.toString());
+    PropertiesService.getScriptProperties().setProperty("DAILY_LAST_RUN", JSON.stringify({
+      time: Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd HH:mm:ss"),
+      success: !!(result && result.success),
+      count: (result && result.count) || 0,
+      message: (result && result.message) || ""
+    }));
+  } catch (e) {
+    Logger.log("บันทึกผลการรันไม่ได้: " + e);
   }
 }
 
+function getLastDailyRun_() {
+  var raw = PropertiesService.getScriptProperties().getProperty("DAILY_LAST_RUN");
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return null; }
+}
+
 /**
- * บันทึกการตั้งค่าลง ScriptProperties
+ * ฟังก์ชันที่ Trigger เรียกทุกวัน (ส่งเฉพาะรายที่ยังไม่โทรและยังไม่เคยแจ้งเตือน)
+ */
+function dailyTriggerHandler() {
+  Logger.log("เริ่มทำงาน: แจ้งเตือนนัด Telemed ประจำวัน");
+  var result;
+  try {
+    result = sendDailyLineNotification(false);
+  } catch (err) {
+    result = { success: false, count: 0, message: String(err && err.message ? err.message : err) };
+  }
+  Logger.log("ผลการส่งแจ้งเตือน: " + JSON.stringify(result));
+  recordDailyRun_(result);
+}
+
+/**
+ * ค่าตั้งค่าสำหรับส่งให้หน้าเว็บ (ไม่ส่ง Token เต็ม ส่งเฉพาะ 4 ตัวท้ายเพื่อยืนยันว่ามีค่าอยู่)
+ */
+function getPublicSettings() {
+  var cfg = getConfig();
+  var token = sanitizeLineToken(cfg.lineChannelAccessToken);
+  return {
+    spreadsheetId: cfg.spreadsheetId,
+    sheetName: cfg.sheetName,
+    appUrl: cfg.appUrl,
+    hasLineToken: !!token,
+    lineTokenPreview: token ? "••••••••" + token.slice(-4) : "",
+    lineDestinationId: cfg.lineDestinationId,
+    reminderHour: getReminderHour(),
+    trigger: getTriggerStatus(),
+    lastDailyRun: getLastDailyRun_()
+  };
+}
+
+/**
+ * บันทึกการตั้งค่าลง ScriptProperties (ระบบกลาง) พร้อมตรวจความถูกต้องก่อนบันทึก
+ * - ช่อง Token / Destination ว่าง = คงค่าเดิมไว้
+ * - เมื่อบันทึกแล้วจะตรวจและตั้ง Trigger อัตโนมัติ
  */
 function saveSettings(settings) {
+  settings = settings || {};
   var props = PropertiesService.getScriptProperties();
-  if (settings.spreadsheetId) props.setProperty("SPREADSHEET_ID", settings.spreadsheetId.trim());
-  if (settings.sheetName !== undefined) props.setProperty("SHEET_NAME", settings.sheetName.trim());
-  if (settings.lineChannelAccessToken) props.setProperty("LINE_CHANNEL_ACCESS_TOKEN", settings.lineChannelAccessToken.trim());
-  if (settings.lineDestinationId) props.setProperty("LINE_DESTINATION_ID", settings.lineDestinationId.trim());
-  if (settings.adminLineId !== undefined) props.setProperty("ADMIN_LINE_ID", settings.adminLineId.trim());
-  if (settings.appUrl) props.setProperty("APP_URL", settings.appUrl.trim());
-  if (settings.reminderHour !== undefined) props.setProperty("REMINDER_HOUR", String(settings.reminderHour));
-  
+
+  var token = settings.lineChannelAccessToken ? sanitizeLineToken(settings.lineChannelAccessToken) : "";
+  if (token && token.length <= 40) {
+    throw new Error("Token สั้นเกินไป (" + token.length + " ตัวอักษร) ซึ่งน่าจะเป็น Channel Secret กรุณาใช้ Channel access token (long-lived) จากแท็บ Messaging API");
+  }
+
+  var dest = settings.lineDestinationId ? String(settings.lineDestinationId).trim() : "";
+  if (dest && !LINE_ID_PATTERN.test(dest)) {
+    throw new Error("LINE Destination ID ไม่ถูกต้อง ต้องขึ้นต้นด้วย C (กลุ่ม) หรือ U (บุคคล) ตามด้วยตัวอักษร 32 ตัว");
+  }
+
+  var hourChanged = false;
+  if (settings.reminderHour !== undefined && settings.reminderHour !== "") {
+    var hour = parseInt(settings.reminderHour, 10);
+    if (isNaN(hour) || hour < 0 || hour > 23) throw new Error("เวลาแจ้งเตือนต้องเป็นชั่วโมง 0-23");
+    hourChanged = hour !== getReminderHour();
+    props.setProperty("REMINDER_HOUR", String(hour));
+  }
+
+  if (settings.spreadsheetId) props.setProperty("SPREADSHEET_ID", String(settings.spreadsheetId).trim());
+  if (settings.sheetName !== undefined) props.setProperty("SHEET_NAME", String(settings.sheetName).trim());
+  if (token) props.setProperty("LINE_CHANNEL_ACCESS_TOKEN", token);
+  if (dest) props.setProperty("LINE_DESTINATION_ID", dest);
+  if (settings.adminLineId !== undefined) props.setProperty("ADMIN_LINE_ID", String(settings.adminLineId).trim());
+  if (settings.appUrl) props.setProperty("APP_URL", String(settings.appUrl).trim());
+
+  // ตั้ง Trigger อัตโนมัติ (ถ้าทำไม่ได้ ไม่ให้การบันทึกค่าล้มเหลว แต่แจ้งสาเหตุกลับไป)
+  var triggerError = "";
+  try {
+    if (hourChanged) setDailyTriggerAt0800(); else ensureDailyTrigger();
+  } catch (err) {
+    triggerError = String(err && err.message ? err.message : err);
+  }
+
   return {
     success: true,
-    message: "บันทึกการตั้งค่าเรียบร้อยแล้ว",
-    config: getConfig()
+    message: "บันทึกการตั้งค่าลงระบบกลางเรียบร้อยแล้ว",
+    triggerError: triggerError,
+    settings: getPublicSettings()
   };
+}
+
+/**
+ * ตรวจสอบระบบแจ้งเตือนอัตโนมัติ: กด "เรียกใช้" ฟังก์ชันนี้ใน Apps Script แล้วดูผลที่ Execution log
+ */
+function diagnoseDailyNotification() {
+  var cfg = getConfig();
+  var token = sanitizeLineToken(cfg.lineChannelAccessToken);
+  var status = getTriggerStatus();
+  var todayIso = Utilities.formatDate(new Date(), "Asia/Bangkok", "yyyy-MM-dd");
+  var pending = 0;
+  try {
+    var all = getAllAppointments();
+    for (var i = 0; i < all.length; i++) {
+      if (all[i].date === todayIso && all[i].tele !== true && all[i].lineNotified !== true) pending++;
+    }
+  } catch (e) {
+    Logger.log("อ่านข้อมูลนัดไม่ได้: " + e);
+  }
+  var report = {
+    token: token ? "มี (ยาว " + token.length + " ตัว)" : "ไม่มี",
+    destination: cfg.lineDestinationId ? (LINE_ID_PATTERN.test(cfg.lineDestinationId) ? "ถูกต้อง" : "รูปแบบไม่ถูกต้อง") : "ไม่มี",
+    trigger: status,
+    pendingToday: pending,
+    lastRun: getLastDailyRun_()
+  };
+  Logger.log(JSON.stringify(report, null, 2));
+  return report;
 }
 
 /**
@@ -1165,9 +1306,8 @@ function doGet(e) {
         responseData = { success: true, data: getAppointmentsByDate(queryDate) };
         break;
       case "getConfig":
-        var cfg = getConfig();
-        var maskedToken = cfg.lineChannelAccessToken ? cfg.lineChannelAccessToken.substring(0, 8) + "..." : "";
-        responseData = { success: true, data: { spreadsheetId: cfg.spreadsheetId, sheetName: cfg.sheetName, lineDestinationId: cfg.lineDestinationId, appUrl: cfg.appUrl, lineChannelAccessToken: maskedToken } };
+      case "getSettings":
+        responseData = { success: true, data: getPublicSettings() };
         break;
       default:
         responseData = { success: false, message: "Invalid action: " + action };
@@ -1234,6 +1374,9 @@ function doPost(e) {
         break;
       case "saveSettings":
         responseData = saveSettings(data);
+        break;
+      case "getSettings":
+        responseData = { success: true, data: getPublicSettings() };
         break;
       default:
         responseData = { success: false, message: "Unknown action: " + action };

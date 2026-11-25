@@ -60,17 +60,18 @@ const CONFIG = {
     localStorage.setItem(this.STORAGE_KEYS.OPERATOR_NAME, (name || "").trim());
   },
 
-  // ค่า LINE Token และ Destination ID
-  getLineConfig: function() {
+  // ค่า LINE เดิมที่เคยเก็บไว้ในเครื่อง (ใช้เพื่อย้ายขึ้นเซิร์ฟเวอร์ครั้งเดียวเท่านั้น)
+  // ปัจจุบัน Token / Destination ID เก็บกลางที่ Google Apps Script ใช้ร่วมกันทุกเครื่อง
+  getLegacyLineConfig: function() {
     return {
       token: localStorage.getItem(this.STORAGE_KEYS.LINE_TOKEN) || "",
       groupId: localStorage.getItem(this.STORAGE_KEYS.LINE_GROUP_ID) || ""
     };
   },
 
-  setLineConfig: function(token, groupId) {
-    if (token !== undefined) localStorage.setItem(this.STORAGE_KEYS.LINE_TOKEN, token.trim());
-    if (groupId !== undefined) localStorage.setItem(this.STORAGE_KEYS.LINE_GROUP_ID, groupId.trim());
+  clearLegacyLineConfig: function() {
+    localStorage.removeItem(this.STORAGE_KEYS.LINE_TOKEN);
+    localStorage.removeItem(this.STORAGE_KEYS.LINE_GROUP_ID);
   }
 };
 
